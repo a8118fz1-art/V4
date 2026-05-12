@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSOX Bike Trainer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+:root{
+  --bg:#0d0f12;--bg2:#13161b;--bg3:#181c23;
+  --border:#252a35;--border2:#2e3545;
+  --orange:#e8701a;--orange2:#c45e12;
+  --green:#00e5a0;--green2:#00b87e;
+  --cyan:#00c8e8;--purple:#8b5cf6;--red:#e84040;--yellow:#f5c842;
+  --txt:#e8eaf0;--txt2:#7a8299;--txt3:#3e4557;
+}
+.rcard-v{margin-bottom: 4px;} /* Added margin to move the value down */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;padding:0 14px;background:#0b0d10;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:300;height:44px;gap:10px;}
+.logo{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:var(--orange);letter-spacing:.15em;flex-shrink:0;}
+.nav-tabs{display:flex;gap:0;flex:1;overflow-x:auto;}
+.nav-tab{padding:0 13px;height:44px;display:flex;align-items:center;gap:5px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--txt2);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;flex-shrink:0;}
+.nav-tab:hover{color:var(--txt);}
+.nav-tab.active{color:var(--orange);border-bottom-color:var(--orange);}
+.nav-tab.locked{opacity:.3;pointer-events:none;}
+.top-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.conn-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);background:var(--bg2);font-size:11px;color:var(--txt2);cursor:pointer;transition:all .2s;font-family:'Rajdhani',sans-serif;font-weight:600;}
+.conn-pill:hover{border-color:var(--green);color:var(--green);}
+.conn-pill.connected{border-color:var(--green);color:var(--green);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;}
+.dot.on{background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 2s infinite;}
+.demo-pill{font-size:10px;padding:3px 8px;border-radius:10px;background:rgba(245,200,66,.1);border:1px solid var(--yellow);color:var(--yellow);font-family:'Share Tech Mono',monospace;cursor:pointer;transition:all .2s;}
+.demo-pill.off{background:transparent;border-color:var(--border2);color:var(--txt3);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── VIEWS ── */
+.view{display:none;flex-direction:column;}
+.view.active{display:flex;}
+
+/* ══ DISCONNECTED ══ */
+#vDisc{align-items:center;justify-content:center;min-height:calc(100vh - 44px);gap:20px;padding:24px;}
+.disc-logo{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:var(--orange);letter-spacing:.08em;text-align:center;}
+.disc-sub{color:var(--txt2);font-size:13px;letter-spacing:.05em;}
+.conn-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:460px;}
+.conn-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all .22s;}
+.conn-card:hover{border-color:var(--green);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,229,160,.08);}
+.conn-card.usb:hover{border-color:var(--cyan);box-shadow:0 8px 24px rgba(0,200,232,.08);}
+.conn-icon{font-size:30px;margin-bottom:8px;}
+.conn-title{font-size:14px;font-weight:700;margin-bottom:3px;}
+.conn-desc{font-size:11px;color:var(--txt2);line-height:1.5;}
+.ble-btn{width:100%;max-width:460px;padding:11px;background:linear-gradient(90deg,var(--green2),var(--green));border:none;border-radius:8px;color:#000;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .2s;}
+.ble-btn:hover{opacity:.85;}
+@media(max-width:460px){.conn-grid{grid-template-columns:1fr;}}
+
+/* ══ DASHBOARD ══ */
+#vDash{min-height:calc(100vh - 44px);}
+.dash-grid{display:grid;grid-template-columns:290px 1fr 250px;height:calc(100vh - 44px - 32px);overflow:hidden;}
+@media(max-width:1080px){.dash-grid{grid-template-columns:260px 1fr;height:auto;overflow:visible;} .col-r{grid-column:1/-1;}}
+@media(max-width:640px){.dash-grid{grid-template-columns:1fr;} .col-r{grid-column:1;}}
+.col-l,.col-c,.col-r{border-right:1px solid var(--border);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.col-r{border-right:none;}
+
+/* cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 13px;}
+.clbl{font-size:10px;color:var(--txt2);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px;}
+.cval{font-family:'Orbitron',monospace;font-size:21px;font-weight:700;color:var(--green);line-height:1;}
+.cunit{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--txt2);margin-left:3px;}
+.m2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+
+/* timer */
+.timer-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 13px;}
+.tlbl{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.tdot{width:5px;height:5px;border-radius:50%;background:var(--orange);}
+.tval{font-family:'Orbitron',monospace;font-size:38px;font-weight:900;color:var(--orange);letter-spacing:.04em;line-height:1;}
+
+/* buttons */
+.btn{width:100%;padding:8px;border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .18s;border:1px solid;letter-spacing:.02em;}
+.btn-ghost{background:transparent;border-color:var(--border2);color:var(--txt2);}
+.btn-ghost:hover{border-color:var(--orange);color:var(--orange);}
+.btn-g{background:rgba(0,229,160,.08);border-color:var(--green2);color:var(--green);}
+.btn-g:hover,.btn-g.on{background:var(--green);color:#000;}
+.btn-r{background:rgba(232,64,64,.08);border-color:var(--red);color:var(--red);}
+.btn-r:hover{background:var(--red);color:#fff;}
+.btn-o{background:linear-gradient(90deg,var(--orange2),var(--orange));border:none;color:#fff;}
+.btn-o:hover{opacity:.85;}
+.btn-c{background:rgba(0,200,232,.08);border-color:var(--cyan);color:var(--cyan);}
+.btn-c:hover{background:var(--cyan);color:#000;}
+
+/* test buttons */
+.tbtn-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+.tbtn{padding:7px 2px;border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;cursor:pointer;border:1px solid;transition:all .18s;}
+.t-a{background:rgba(0,229,160,.07);border-color:var(--green);color:var(--green);}
+.t-a:hover,.t-a.active{background:var(--green);color:#000;}
+.t-i{background:rgba(232,112,26,.07);border-color:var(--orange);color:var(--orange);}
+.t-i:hover,.t-i.active{background:var(--orange);color:#fff;}
+.t-w{background:rgba(139,92,246,.07);border-color:var(--purple);color:var(--purple);}
+.t-w:hover,.t-w.active{background:var(--purple);color:#fff;}
+
+/* HR */
+.hr-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 13px;}
+.hr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.hr-lbl{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;}
+.hrdot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 5px var(--red);}
+.hrval{font-family:'Orbitron',monospace;font-size:28px;font-weight:700;color:var(--red);}
+.hr-source{font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',monospace;margin-top:2px;}
+.hrbar{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden;}
+.hrfill{height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--orange),var(--red));border-radius:2px;transition:width .6s;}
+
+/* ── TRAINER CTRL ── */
+.ctrl-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 13px;}
+.ctrl-title{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.ctrl-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.ctrl-tab{flex:1;padding:6px 0;text-align:center;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--txt2);font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .18s;}
+.ctrl-tab.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.ctrl-main{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;color:var(--orange);}
+.ctrl-sub{font-size:11px;color:var(--txt2);}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--border2);border-radius:2px;outline:none;margin:6px 0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--orange);cursor:pointer;box-shadow:0 0 7px rgba(232,112,26,.5);}
+.ctrl-hints{display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',monospace;}
+.ctrl-convert{font-size:11px;color:var(--cyan);font-family:'Share Tech Mono',monospace;text-align:center;margin:4px 0;min-height:14px;}
+.btn-row2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px;}
+
+/* gauge */
+.gauge-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 13px;}
+.gauge-title{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:5px;margin-bottom:8px;}
+.gauge-title::before{content:'';display:block;width:3px;height:12px;background:var(--orange);border-radius:2px;}
+.gauge-wrap{display:flex;justify-content:center;padding:4px 0;}
+.gauge-svg-wrap{position:relative;width:190px;height:120px;}
+.gauge-center{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);text-align:center;}
+.gbig{font-family:'Orbitron',monospace;font-size:32px;font-weight:900;color:var(--green);line-height:1;}
+.gsub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--txt2);letter-spacing:.15em;margin-top:2px;}
+
+/* center metrics */
+.cm2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.cm{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 13px;}
+.cmlbl{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;}
+.cmval{font-family:'Orbitron',monospace;font-size:21px;font-weight:700;color:var(--cyan);line-height:1;}
+
+/* chart */
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:11px 13px;flex:1;min-height:200px;display:flex;flex-direction:column;}
+.chart-title{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:5px;margin-bottom:6px;}
+.chart-title::before{content:'';display:block;width:3px;height:12px;background:var(--purple);border-radius:2px;}
+.chart-legend{display:flex;gap:10px;margin-bottom:6px;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txt2);}
+.legln{width:18px;height:2px;border-radius:1px;}
+.chart-wrap{flex:1;position:relative;min-height:150px;}
+.summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 13px;}
+.sval{font-family:'Orbitron',monospace;font-size:19px;font-weight:700;color:var(--orange);}
+.ssub{font-size:11px;color:var(--txt3);margin-top:1px;}
+
+/* footer */
+.dash-footer{padding:5px 14px;background:#0b0d10;border-top:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--txt3);display:flex;justify-content:space-between;flex-shrink:0;}
+
+/* ══ CALIBRATION ══ */
+#vCal{min-height:calc(100vh - 44px);padding:14px;gap:12px;max-width:960px;margin:0 auto;width:100%;}
+.cal-sec{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:15px 17px;}
+.cal-ph{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.phn{width:24px;height:24px;border-radius:50%;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ph-o{background:var(--orange);color:#fff;}
+.ph-g{background:var(--green);color:#000;}
+.ph-c{background:var(--cyan);color:#000;}
+.ph-p{background:var(--purple);color:#fff;}
+.cal-ph-title{font-size:14px;font-weight:700;}
+.cal-ph-sub{font-size:11px;color:var(--txt2);margin-top:1px;}
+.cal-steps{display:flex;flex-direction:column;gap:7px;margin-top:2px;}
+.cstep{display:flex;gap:9px;align-items:flex-start;}
+.cstep-dot{width:5px;height:5px;border-radius:50%;background:var(--border2);margin-top:7px;flex-shrink:0;}
+.cstep-txt{font-size:12px;color:var(--txt2);line-height:1.6;}
+.cstep-txt b{color:var(--txt);}
+.formula{background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:9px 14px;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--green);margin:10px 0;text-align:center;letter-spacing:.04em;}
+
+/* KP matrix table */
+.kp-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;}
+.kp-table th{background:var(--bg3);color:var(--txt2);font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 9px;text-align:center;border:1px solid var(--border);font-weight:400;}
+.kp-table td{padding:8px 10px;text-align:center;border:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:12px;}
+.kp-table td.rpm-h{color:var(--cyan);background:var(--bg3);}
+.kp-table td.ref-val{color:var(--txt2);}
+.kp-table input.kp-input{width:70px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--orange);font-family:'Share Tech Mono',monospace;font-size:12px;padding:4px 6px;text-align:center;outline:none;transition:border .18s;}
+.kp-table input.kp-input:focus{border-color:var(--orange);}
+.kp-table td.m-val{color:var(--green);font-weight:700;}
+.kp-table td.m-empty{color:var(--txt3);}
+
+/* coefficient display */
+.coeff-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:10px 0;}
+.coeff-card{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px;text-align:center;}
+.coeff-rpm{font-size:10px;color:var(--cyan);font-family:'Share Tech Mono',monospace;margin-bottom:3px;}
+.coeff-m{font-size:13px;color:var(--green);font-family:'Share Tech Mono',monospace;font-weight:700;}
+.coeff-desc{font-size:10px;color:var(--txt2);margin-top:2px;}
+
+/* live compensation */
+.live-wrap{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.live-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.live-card{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:10px;text-align:center;}
+.live-lbl{font-size:10px;color:var(--txt2);margin-bottom:3px;}
+.live-val{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;}
+.live-sub{font-size:10px;color:var(--txt3);margin-top:2px;}
+
+/* validation */
+.val-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0;}
+.val-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:11px;}
+.val-title{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.val-result{font-family:'Orbitron',monospace;font-size:19px;font-weight:700;}
+.val-sub{font-size:11px;color:var(--txt2);margin-top:2px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-family:'Share Tech Mono',monospace;margin-top:5px;}
+.badge-ok{background:rgba(0,229,160,.12);color:var(--green);border:1px solid var(--green);}
+.badge-fail{background:rgba(232,64,64,.12);color:var(--red);border:1px solid var(--red);}
+.badge-wait{background:rgba(122,130,153,.1);color:var(--txt2);border:1px solid var(--border2);}
+
+.cal-progress{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:8px 0;}
+.cal-pf{height:100%;border-radius:2px;transition:width .4s;}
+
+.export-box{background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:10px 13px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--txt2);word-break:break-all;max-height:80px;overflow-y:auto;margin:8px 0;}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:22px;width:min(400px,92vw);max-height:88vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px;}
+.modal-sub{font-size:11px;color:var(--txt2);margin-bottom:16px;}
+.frow{margin-bottom:12px;}
+.flbl{font-size:11px;color:var(--txt2);margin-bottom:4px;display:block;}
+.finput,.fselect{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;color:var(--txt);font-family:'Rajdhani',sans-serif;font-size:13px;outline:none;transition:border .18s;}
+.finput:focus,.fselect:focus{border-color:var(--orange);}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.kp-preview{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;margin:12px 0;}
+.kpv{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:var(--green);}
+.kpu{font-size:11px;color:var(--txt2);margin-left:3px;}
+.minfo{background:rgba(232,112,26,.07);border:1px solid rgba(232,112,26,.2);border-radius:5px;padding:9px;font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.65;}
+.modal-btns{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+
+/* test overlay */
+.test-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:20px;}
+.test-ov.open{display:flex;}
+.tbadge{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:.18em;padding:3px 11px;border-radius:20px;}
+.tb-a{background:rgba(0,229,160,.12);color:var(--green);border:1px solid var(--green);}
+.tb-i{background:rgba(232,112,26,.12);color:var(--orange);border:1px solid var(--orange);}
+.tb-w{background:rgba(139,92,246,.12);color:var(--purple);border:1px solid var(--purple);}
+.test-title{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;text-align:center;}
+.tinfo-g{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:100%;max-width:460px;}
+.tinfo-c{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:11px;text-align:center;}
+.tinfo-l{font-size:10px;color:var(--txt2);margin-bottom:3px;}
+.tinfo-v{font-family:'Orbitron',monospace;font-size:17px;font-weight:700;color:var(--green);}
+.t-counter{font-family:'Orbitron',monospace;font-size:68px;font-weight:900;color:var(--orange);line-height:1;text-shadow:0 0 28px rgba(232,112,26,.35);}
+.t-phase{font-size:13px;color:var(--txt2);letter-spacing:.08em;text-transform:uppercase;}
+.t-prog{width:100%;max-width:460px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.t-pf{height:100%;background:var(--green);border-radius:2px;transition:width .3s;}
+.step-dots{display:flex;gap:7px;}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--border2);transition:all .3s;}
+.sdot.done{background:var(--green);}
+.sdot.cur{background:var(--orange);box-shadow:0 0 7px var(--orange);}
+
+/* result */
+.res-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:450;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:20px;overflow-y:auto;}
+.res-panel.open{display:flex;}
+.res-title{font-family:'Orbitron',monospace;font-size:19px;font-weight:900;color:var(--orange);text-align:center;}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:100%;max-width:480px;}
+.rcard{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:11px;text-align:center;}
+.rcard-l{font-size:10px;color:var(--txt2);margin-bottom:3px;}
+.rcard-v{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;}
+.res-cw{width:100%;max-width:500px;height:200px;position:relative;}
+.res-btns{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;max-width:280px;}
+
+/* BLE scanning modal */
+.ble-scan-list{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:180px;overflow-y:auto;}
+.ble-device{display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer;transition:all .18s;}
+.ble-device:hover{border-color:var(--green);background:rgba(0,229,160,.05);}
+.ble-name{font-weight:600;font-size:13px;}
+.ble-rssi{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--txt2);}
+.scan-anim{display:flex;align-items:center;gap:8px;color:var(--txt2);font-size:12px;margin:8px 0;}
+.scan-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:scan-pulse 1s infinite;}
+.scan-dot:nth-child(2){animation-delay:.2s;}
+.scan-dot:nth-child(3){animation-delay:.4s;}
+@keyframes scan-pulse{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
+
+@media(max-width:560px){
+  .tinfo-g{grid-template-columns:1fr 1fr;}
+  .res-grid{grid-template-columns:1fr 1fr;}
+  .coeff-grid{grid-template-columns:repeat(3,1fr);}
+  .val-grid{grid-template-columns:1fr;}
+  .live-grid{grid-template-columns:1fr 1fr;}
+  .t-counter{font-size:50px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── TOPBAR ── -->
+<div class="topbar">
+  <div class="logo">TSOX</div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" id="navDash" onclick="showPage('Dash')">📊 儀表板</button>
+    <button class="nav-tab locked" id="navCal" onclick="showPage('Cal')">⚙ 功率校正</button>
+  </nav>
+  <div class="top-right">
+    <div class="demo-pill off" id="demoPill" onclick="toggleDemo()" title="模擬數據開關">DEMO</div>
+    <div class="conn-pill" id="connPill" onclick="openBLEModal()">
+      <div class="dot" id="connDot"></div>
+      <span id="connTxt">連線</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VIEW: DISCONNECTED ══ -->
+<div class="view active" id="vDisc">
+  <div class="disc-logo">TSOX BIKE TRAINER</div>
+  <div class="disc-sub">請選擇連線方式</div>
+  <div class="conn-grid">
+    <div class="conn-card" onclick="openBLEModal()">
+      <div class="conn-icon">📶</div>
+      <div class="conn-title" style="color:var(--green)">藍牙 FTMS</div>
+      <div class="conn-desc">Fitness Machine Service<br>BLE 4.0+ 無線連接</div>
+    </div>
+    <div class="conn-card usb" onclick="connectUSB()">
+      <div class="conn-icon">🔌</div>
+      <div class="conn-title" style="color:var(--cyan)">USB 串口</div>
+      <div class="conn-desc">UART 有線連接<br>低延遲穩定傳輸</div>
+    </div>
+  </div>
+  <button class="ble-btn" onclick="openBLEModal()">📶 掃描藍牙 FTMS 裝置</button>
+</div>
+
+<!-- ══ VIEW: DASHBOARD ══ -->
+<div class="view" id="vDash">
+  <div class="dash-grid">
+    <!-- LEFT -->
+    <div class="col-l">
+      <div class="timer-card">
+        <div class="tlbl"><div class="tdot"></div>訓練時間</div>
+        <div class="tval" id="timerDisp">00:00</div>
+      </div>
+      <button class="btn btn-ghost" onclick="resetAll()">↺ 重置</button>
+      <div class="m2">
+        <div class="card"><div class="clbl">平均功率</div><div><span class="cval" id="avgPwr">0</span><span class="cunit">W</span></div></div>
+        <div class="card"><div class="clbl">最大功率</div><div><span class="cval" id="maxPwr">0</span><span class="cunit">W</span></div></div>
+      </div>
+      <div class="m2">
+        <div class="card"><div class="clbl">平均RPM</div><div><span class="cval" id="avgRpm">0</span><span class="cunit">rpm</span></div></div>
+        <div class="card"><div class="clbl">⚡ 熱量</div><div><span class="cval" id="kcal" style="color:var(--orange)">0</span><span class="cunit">kcal</span></div></div>
+      </div>
+
+      <div class="tbtn-row">
+        <button class="tbtn t-a" onclick="openTestModal('anaerobic',this)">無氧測試</button>
+        <button class="tbtn t-i" onclick="openTestModal('interval',this)">間歇測試</button>
+        <button class="tbtn t-w" onclick="openTestModal('wingate',this)">WINGATE</button>
+      </div>
+
+      <!-- HR -->
+      <div class="hr-card">
+        <div class="hr-top">
+          <div class="hr-lbl"><div class="hrdot"></div>心率監測</div>
+          <span id="hrSource" class="hr-source">—</span>
+        </div>
+        <div class="hrval" id="hrVal">—</div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:1px;" id="hrZone">—</div>
+        <div class="hrbar"><div class="hrfill" id="hrBar"></div></div>
+      </div>
+      <button class="btn btn-c" id="hrConnBtn" onclick="connectHR()" style="font-size:13px;font-weight:700;">💓 連接藍牙心率帶</button>
+
+      <!-- TRAINER CTRL -->
+      <div class="ctrl-card">
+        <div class="ctrl-title">⚙ 訓練器控制</div>
+        <div class="ctrl-tabs">
+          <button class="ctrl-tab active" id="tabERG" onclick="setCtrlMode('ERG',this)">ERG</button>
+          <button class="ctrl-tab" id="tabKP" onclick="setCtrlMode('KP',this)">KP調節</button>
+          <button class="ctrl-tab" id="tabRES" onclick="setCtrlMode('RES',this)">阻力</button>
+        </div>
+
+        <!-- ERG mode -->
+        <div id="ctrlERG">
+          <div class="ctrl-row">
+            <span class="ctrl-sub">目標功率</span>
+            <span><span class="ctrl-main" id="ergWatt">100</span><span style="color:var(--txt2);font-size:11px;"> W</span></span>
+          </div>
+          <input type="range" id="ergSlider" min="0" max="800" value="100" step="5" oninput="ergUpdate(this.value)">
+          <div class="ctrl-hints"><span>0 W</span><span id="ergCur">目標：100 W</span><span>800 W</span></div>
+          <div class="ctrl-convert" id="ergConvert">直接傳送 Watts 至訓練器</div>
+        </div>
+
+        <!-- KP mode -->
+        <div id="ctrlKP" style="display:none">
+          <div class="ctrl-row">
+            <span class="ctrl-sub">負荷量</span>
+            <span><span class="ctrl-main" id="kpVal">3.0</span><span style="color:var(--txt2);font-size:11px;"> kp</span></span>
+          </div>
+          <input type="range" id="kpSlider" min="0" max="140" value="30" step="1" oninput="kpUpdate(this.value)">
+          <div class="ctrl-hints"><span>0.0 kp</span><span id="kpCur">3.0 kp</span><span>14.0 kp</span></div>
+          <div class="ctrl-convert" id="kpConvert">≈ <b style="color:var(--orange)" id="kpWattOut">0</b> W &nbsp;(kp × RPM × 0.6)</div>
+        </div>
+
+        <!-- RES mode -->
+        <div id="ctrlRES" style="display:none">
+          <div class="ctrl-row">
+            <span class="ctrl-sub">阻力段位</span>
+            <span><span class="ctrl-main" id="resLvl">1</span><span style="color:var(--txt2);font-size:11px;"> / 160</span></span>
+          </div>
+          <input type="range" id="resSlider" min="1" max="160" value="1" step="1" oninput="resUpdate(this.value)">
+          <div class="ctrl-hints"><span>1</span><span id="resCur">段位：1 (5%)</span><span>160</span></div>
+          <div class="ctrl-convert" id="resConvert">段位 1 ≈ <b style="color:var(--orange)" id="resWattOut">5</b> W (每段 5W)</div>
+        </div>
+
+        <button class="btn btn-o" onclick="sendCtrl()" style="margin:8px 0 5px;font-size:13px;font-weight:700;">📡 套用設定</button>
+        <div class="btn-row2">
+          <button class="btn btn-g" id="btnStart" onclick="toggleStart()" style="font-size:13px;font-weight:700;">▶ 啟動</button>
+          <button class="btn btn-r" onclick="stopAll()" style="font-size:13px;font-weight:700;">◼ 停止</button>
+        </div>
+        <div id="ctrlSentMsg" style="font-size:10px;color:var(--green);text-align:center;margin-top:4px;min-height:13px;"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="col-c">
+      <div class="gauge-card">
+        <div class="gauge-title">功率監測</div>
+        <div class="gauge-wrap">
+          <div class="gauge-svg-wrap">
+            <svg width="190" height="120" viewBox="0 0 190 120">
+              <path d="M15 105 A85 85 0 0 1 175 105" fill="none" stroke="#252a35" stroke-width="6" stroke-linecap="round"/>
+              <path id="gFill" d="M15 105 A85 85 0 0 1 175 105" fill="none" stroke="#00e5a0" stroke-width="6" stroke-linecap="round" stroke-dasharray="267" stroke-dashoffset="267"/>
+              <line x1="15" y1="105" x2="21" y2="105" stroke="#3e4557" stroke-width="1.5" transform="rotate(-150 95 105)"/>
+              <line x1="15" y1="105" x2="19" y2="105" stroke="#3e4557" stroke-width="1" transform="rotate(-112 95 105)"/>
+              <line x1="15" y1="105" x2="19" y2="105" stroke="#3e4557" stroke-width="1" transform="rotate(-75 95 105)"/>
+              <line x1="15" y1="105" x2="19" y2="105" stroke="#3e4557" stroke-width="1" transform="rotate(-38 95 105)"/>
+              <line x1="15" y1="105" x2="21" y2="105" stroke="#3e4557" stroke-width="1.5" transform="rotate(0 95 105)"/>
+              <circle id="gNeedle" cx="15" cy="105" r="5" fill="#e84040" transform="rotate(-150 95 105)"/>
+              <text x="10" y="120" fill="#3e4557" font-size="8" font-family="monospace">0</text>
+              <text x="166" y="120" fill="#3e4557" font-size="8" font-family="monospace">800</text>
+              <text x="87" y="16" fill="#3e4557" font-size="8" font-family="monospace">400</text>
+            </svg>
+            <div class="gauge-center">
+              <div class="gbig" id="gPow">0</div>
+              <div class="gsub">WATTS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cm2">
+        <div class="cm"><div class="cmlbl">速度</div><div><span class="cmval" id="speed">0.0</span><span class="cunit">km/h</span></div></div>
+        <div class="cm">
+          <div class="cmlbl" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>⬆ 踏頻</span>
+            <span id="cadenceSrc" style="font-size:9px;color:var(--txt3);font-family:'Share Tech Mono',monospace;">訓練台</span>
+          </div>
+          <div><span class="cmval" id="cadence">0</span><span class="cunit">rpm</span></div>
+          <!-- External cadence sensor buttons -->
+          <div style="display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="cadSensorBtn" onclick="connectExternalCadence()"
+              style="font-size:10px;padding:4px 7px;color:var(--cyan);border-color:var(--cyan);width:auto;">
+              + BLE 踏頻器
+            </button>
+            <button class="btn btn-ghost" onclick="showANTModal()"
+              style="font-size:10px;padding:4px 7px;color:var(--yellow);border-color:var(--yellow);width:auto;">
+              ANT+
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="cm2">
+        <div class="cm"><div class="cmlbl">📍 距離</div><div><span class="cmval" id="dist" style="color:var(--txt)">0</span><span class="cunit">m</span></div></div>
+        <div class="cm"><div class="cmlbl">⏱ 計時</div><div class="cmval" id="cTimer" style="color:var(--txt);font-size:17px;">00:00</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="col-r">
+      <div class="chart-card">
+        <div class="chart-title">功率與踏頻歷史</div>
+        <div class="chart-legend">
+          <div class="leg"><div class="legln" style="background:var(--orange)"></div>功率 (W)</div>
+          <div class="leg"><div class="legln" style="background:var(--green)"></div>踏頻 (RPM)</div>
+        </div>
+        <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+      </div>
+      <div class="summary-card">
+        <div class="clbl" style="margin-bottom:5px;">平均功率</div>
+        <div class="sval" id="sumAvg">0 W</div>
+        <div class="ssub" id="sumMax">最大 0 W</div>
+      </div>
+    </div>
+  </div>
+  <div class="dash-footer">
+    <span>TSOX TRAINER · FTMS v1.0</span>
+    <span id="footerTxt">未連線</span>
+  </div>
+</div>
+
+<!-- ══ VIEW: CALIBRATION ══ -->
+<div class="view" id="vCal">
+
+  <!-- Phase 1: KP Initial -->
+  <div class="cal-sec">
+    <div class="cal-ph">
+      <div class="phn ph-o">1</div>
+      <div>
+        <div class="cal-ph-title">KP 初始校正 (手動回填模式)</div>
+        <div class="cal-ph-sub">於扭力機上執行 — 建立測試機原始誤差矩陣並計算修正係數 M</div>
+      </div>
+    </div>
+    <div class="cal-steps">
+      <div class="cstep"><div class="cstep-dot"></div><div class="cstep-txt"><b>設定環境：</b>於扭力機設定固定轉速 (40 / 60 / 80 / 100 / 120 RPM)</div></div>
+      <div class="cstep"><div class="cstep-dot"></div><div class="cstep-txt"><b>數據回填：</b>手動輸入測試機於各轉速下顯示的實測功率 (W)</div></div>
+      <div class="cstep"><div class="cstep-dot"></div><div class="cstep-txt"><b>係數計算：</b>系統自動計算 M = 基準功率 / 實測功率</div></div>
+    </div>
+    <div class="formula">M = P_reference / P_measured &nbsp;|&nbsp; Watt = KP × RPM × 0.6</div>
+
+    <table class="kp-table" id="kpTable">
+      <thead>
+        <tr>
+          <th>轉速 (RPM)</th>
+          <th>KP 設定值</th>
+          <th>基準功率 (W) <span style="color:var(--txt3)">*扭力機</span></th>
+          <th>實測功率 (W) <span style="color:var(--orange)">*手動輸入</span></th>
+          <th>修正係數 M</th>
+        </tr>
+      </thead>
+      <tbody id="kpTableBody"></tbody>
+    </table>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;">
+      <button class="btn btn-g" onclick="calcKPMatrix()" style="max-width:160px;font-size:13px;font-weight:700;">⚡ 計算 M 矩陣</button>
+      <button class="btn btn-ghost" onclick="resetKPMatrix()" style="max-width:120px;font-size:12px;">↺ 重置</button>
+      <button class="btn btn-ghost" onclick="fillDemoData()" style="max-width:140px;font-size:12px;color:var(--yellow);border-color:var(--yellow);">載入範例數據</button>
+    </div>
+  </div>
+
+  <!-- Phase 2: Coefficient Display -->
+  <div class="cal-sec">
+    <div class="cal-ph">
+      <div class="phn ph-g">2</div>
+      <div>
+        <div class="cal-ph-title">修正係數矩陣 (M Matrix)</div>
+        <div class="cal-ph-sub">每個採樣RPM點的增益係數，非採樣點以線性插值計算</div>
+      </div>
+    </div>
+    <div class="formula">P_correct = P_measured × M_interpolated(RPM_live)</div>
+    <div class="coeff-grid" id="coeffGrid">
+      <div style="grid-column:1/-1;text-align:center;padding:14px;color:var(--txt3);font-size:12px;">請先完成 Phase 1 數據回填並計算</div>
+    </div>
+    <div class="cal-progress"><div class="cal-pf" id="mCalcProg" style="width:0%;background:var(--green)"></div></div>
+  </div>
+
+  <!-- Phase 3: Live Compensation -->
+  <div class="cal-sec">
+    <div class="cal-ph">
+      <div class="phn ph-c">3</div>
+      <div>
+        <div class="cal-ph-title">即時補償驗證 (Live Compensation)</div>
+        <div class="cal-ph-sub">調整 RPM 滑桿，即時預覽線性插值補償效果</div>
+      </div>
+    </div>
+    <div class="formula">P_correct = P_measured × [ M_low + (M_high − M_low) × (RPM_live − RPM_low) / (RPM_high − RPM_low) ]</div>
+    <div class="live-wrap">
+      <div class="ctrl-row" style="margin-bottom:0">
+        <span style="font-size:12px;color:var(--txt2);">測試轉速</span>
+        <span class="ctrl-main" id="liveRpmDisp" style="font-size:16px;">70 RPM</span>
+      </div>
+      <input type="range" id="liveRpmSlider" min="40" max="120" value="70" step="1" oninput="updateLiveComp(this.value)">
+      <div class="ctrl-hints"><span>40 rpm</span><span></span><span>120 rpm</span></div>
+      <div style="margin-top:4px">
+        <div class="ctrl-row" style="margin-bottom:3px;">
+          <span style="font-size:11px;color:var(--txt2);">輸入功率 (P_measured)</span>
+          <span><span class="ctrl-main" id="livePmeasDisp" style="font-size:14px;">200</span> W</span>
+        </div>
+        <input type="range" id="livePmeasSlider" min="10" max="800" value="200" step="5" oninput="updateLiveComp(null,this.value)">
+        <div class="ctrl-hints"><span>10 W</span><span></span><span>800 W</span></div>
+      </div>
+      <div class="live-grid" id="liveGrid">
+        <div class="live-card"><div class="live-lbl">插值係數 M</div><div class="live-val" id="liveMval" style="color:var(--green);">—</div><div class="live-sub" id="liveMsub">—</div></div>
+        <div class="live-card"><div class="live-lbl">原始功率</div><div class="live-val" id="livePmeas" style="color:var(--txt2);">—</div><div class="live-sub">P_measured</div></div>
+        <div class="live-card"><div class="live-lbl">補償後功率</div><div class="live-val" id="liveCorr" style="color:var(--orange);">—</div><div class="live-sub">P_correct</div></div>
+      </div>
+    </div>
+    <!-- live chart -->
+    <div style="height:160px;position:relative;margin-top:10px;"><canvas id="liveChart"></canvas></div>
+  </div>
+
+  <!-- Phase 4: Validation -->
+  <div class="cal-sec">
+    <div class="cal-ph">
+      <div class="phn ph-p">4</div>
+      <div>
+        <div class="cal-ph-title">交叉驗證 (Cross-Check)</div>
+        <div class="cal-ph-sub">於非採樣點 (70, 90 RPM) 測試，補償誤差須 ≤ ±1%</div>
+      </div>
+    </div>
+    <div class="val-grid" id="valGrid">
+      <div class="val-card"><div class="val-title">70 RPM 交叉驗證</div><div class="val-result" id="val70" style="color:var(--txt2);">—</div><div class="val-sub" id="val70sub">尚未執行</div><span class="badge badge-wait" id="val70badge">等待中</span></div>
+      <div class="val-card"><div class="val-title">90 RPM 交叉驗證</div><div class="val-result" id="val90" style="color:var(--txt2);">—</div><div class="val-sub" id="val90sub">尚未執行</div><span class="badge badge-wait" id="val90badge">等待中</span></div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;">
+      <button class="btn btn-g" id="valBtn" onclick="runValidation()" style="max-width:150px;font-size:13px;font-weight:700;opacity:.4;" disabled>▶ 執行驗證</button>
+      <button class="btn btn-o" id="applyBtn" onclick="applyCalibration()" style="max-width:180px;font-size:13px;font-weight:700;opacity:.4;" disabled>✓ 套用至儀表板</button>
+    </div>
+    <div id="applyMsg" style="font-size:11px;color:var(--green);margin-top:6px;min-height:14px;"></div>
+  </div>
+
+  <!-- Phase 5: Export -->
+  <div class="cal-sec">
+    <div class="cal-ph">
+      <div class="phn" style="background:var(--border2);color:var(--txt2);">5</div>
+      <div>
+        <div class="cal-ph-title">數據持久化 / 匯出</div>
+        <div class="cal-ph-sub">校正後之 M 矩陣匯出存檔或寫入設備韌體</div>
+      </div>
+    </div>
+    <div class="export-box" id="exportBox">尚無校正數據</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="exportJSON()" style="max-width:130px;font-size:12px;">📋 複製 JSON</button>
+      <button class="btn btn-ghost" onclick="downloadCSV()" style="max-width:130px;font-size:12px;">💾 下載 CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ MODALS ══ -->
+
+<!-- BLE Scan Modal -->
+<div class="modal-overlay" id="bleScanModal">
+  <div class="modal">
+    <div class="modal-title">📶 連接藍牙 FTMS 訓練台</div>
+    <div class="modal-sub" id="bleModalSub">點擊下方按鈕，瀏覽器將彈出系統藍牙選擇視窗</div>
+
+    <!-- State: unsupported -->
+    <div id="bleUnsupported" style="display:none;background:rgba(232,64,64,.08);border:1px solid var(--red);border-radius:5px;padding:10px;font-size:12px;color:var(--red);margin:8px 0;line-height:1.7;">
+      ❌ 此瀏覽器不支援 Web Bluetooth API<br>
+      <span style="color:var(--txt2);">請使用 Chrome 56+ 或 Edge 79+（需桌面版，且須在 HTTPS 或 localhost 下執行）</span>
+    </div>
+
+    <!-- State: ready -->
+    <div id="bleReady">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;margin:10px 0;font-size:12px;color:var(--txt2);line-height:1.8;">
+        <div style="color:var(--txt);font-weight:600;margin-bottom:4px;">連線流程</div>
+        1️⃣ 點擊「掃描 FTMS 裝置」<br>
+        2️⃣ 瀏覽器彈出藍牙選擇視窗<br>
+        3️⃣ 從列表選擇你的訓練台<br>
+        4️⃣ 點擊「配對」完成連線
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;">
+        ✅ 支援所有 FTMS 協議裝置：Wahoo KICKR、TACX、Elite、Saris 等
+      </div>
+    </div>
+
+    <!-- State: connecting -->
+    <div id="bleConnecting" style="display:none;text-align:center;padding:14px 0;">
+      <div class="scan-anim" style="justify-content:center;margin-bottom:8px;">
+        <div class="scan-dot"></div><div class="scan-dot"></div><div class="scan-dot"></div>
+      </div>
+      <div id="bleConnMsg" style="font-size:13px;color:var(--txt2);">正在連線中…</div>
+    </div>
+
+    <!-- State: connected -->
+    <div id="bleConnected" style="display:none;text-align:center;padding:10px 0;">
+      <div style="font-size:32px;margin-bottom:6px;">✅</div>
+      <div id="bleConnectedName" style="font-size:15px;font-weight:700;color:var(--green);"></div>
+      <div style="font-size:11px;color:var(--txt2);margin-top:3px;" id="bleConnectedSub"></div>
+    </div>
+
+    <!-- State: error -->
+    <div id="bleError" style="display:none;background:rgba(232,64,64,.07);border:1px solid rgba(232,64,64,.3);border-radius:5px;padding:10px;font-size:12px;color:var(--red);margin:8px 0;line-height:1.6;" id="bleErrorMsg"></div>
+
+    <div class="modal-btns" style="margin-top:12px;">
+      <button class="btn btn-ghost" id="bleCancelBtn" onclick="closeBLEModal()">取消</button>
+      <button class="btn btn-g" id="bleScanBtn" onclick="startBLEScan()" style="font-size:13px;font-weight:700;">📶 掃描 FTMS 裝置</button>
+    </div>
+
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:7px;">或使用模擬模式（無需硬體）</div>
+      <button class="btn btn-ghost" onclick="connectDemo()" style="font-size:12px;color:var(--yellow);border-color:var(--yellow);">🎮 使用 DEMO 模擬模式</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANT+ Info Modal -->
+<div class="modal-overlay" id="antModal">
+  <div class="modal">
+    <div class="modal-title">📡 ANT+ 踏頻器連接說明</div>
+    <div class="modal-sub">ANT+ 無法直接透過瀏覽器存取，需要橋接方案</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin:12px 0;">
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:6px;">方案 A — USB ANT+ Dongle（推薦）</div>
+        <div style="font-size:12px;color:var(--txt2);line-height:1.7;">
+          1. 插入 ANT+ USB Dongle（Garmin / Wahoo 通用）<br>
+          2. 安裝 <b style="color:var(--txt);">ANT+ Bridge</b> 或 <b style="color:var(--txt);">GoldenCheetah</b> 橋接軟體<br>
+          3. 橋接程式將 ANT+ 數據轉為 WebSocket<br>
+          4. APP 透過 <code style="color:var(--green);font-size:11px;">ws://localhost:1234</code> 接收踏頻數值
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:6px;">方案 B — 雙模踏頻器（最簡單）</div>
+        <div style="font-size:12px;color:var(--txt2);line-height:1.7;">
+          選購同時支援 <b style="color:var(--txt);">ANT+ + BLE</b> 的踏頻器<br>
+          例：Garmin Cadence Sensor 2、Wahoo RPM<br>
+          → 直接用 BLE 連接，ANT+ 留給碼表使用<br>
+          → 點上方「+ BLE 踏頻器」即可連接
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:6px;">方案 C — WebSocket 橋接（進階）</div>
+        <div style="font-size:12px;color:var(--txt2);line-height:1.7;">
+          若已有 ANT+ Dongle，可使用下方測試 WS 連線
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
+          <input id="wsUrl" class="finput" value="ws://localhost:1234" style="flex:1;font-size:11px;font-family:'Share Tech Mono',monospace;padding:6px 8px;">
+          <button class="btn btn-ghost" onclick="connectANTWebSocket()" style="width:auto;padding:6px 10px;font-size:12px;white-space:nowrap;color:var(--purple);border-color:var(--purple);">連接 WS</button>
+        </div>
+        <div id="wsStatus" style="font-size:11px;color:var(--txt3);margin-top:5px;font-family:'Share Tech Mono',monospace;"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeANTModal()" style="margin-top:4px;">關閉</button>
+  </div>
+</div>
+
+<!-- Test Setup Modal -->
+<div class="modal-overlay" id="testModal">
+  <div class="modal">
+    <div class="modal-title" id="tModalTitle">⚡ 無氧功率測試</div>
+    <div class="modal-sub" id="tModalSub">請輸入受測者資訊</div>
+    <div class="frow2">
+      <div class="frow" style="margin-bottom:0"><label class="flbl">性別</label><select class="fselect" id="fGender" onchange="updateKP()"><option value="M">男</option><option value="F">女</option></select></div>
+      <div class="frow" style="margin-bottom:0"><label class="flbl">體重 (kg)</label><input class="finput" id="fWeight" type="number" value="70" min="30" max="150" step="0.1" oninput="updateKP()"></div>
+    </div>
+    <div class="kp-preview">
+      <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;" id="kpLbl">初始負荷量 (kp)</div>
+      <div><span class="kpv" id="kpPrev">4.0</span><span class="kpu">kp</span></div>
+      <div style="font-size:10px;color:var(--txt2);margin-top:2px;" id="kpNote">依性別體重查表</div>
+    </div>
+    <div class="minfo" id="tModalInfo"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeTestModal()">取消</button>
+      <button class="btn btn-o" onclick="startTest()" style="font-size:13px;font-weight:700;">▶ 開始測試</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TEST OVERLAY ══ -->
+<div class="test-ov" id="testOv">
+  <div class="tbadge" id="tBadge">測試</div>
+  <div class="test-title" id="tTitle">準備中</div>
+  <div class="tinfo-g" id="tInfoG"></div>
+  <div class="t-counter" id="tCounter">—</div>
+  <div class="t-phase" id="tPhase">—</div>
+  <div class="t-prog"><div class="t-pf" id="tPF"></div></div>
+  <div class="step-dots" id="tDots"></div>
+  <button class="btn btn-ghost" style="max-width:160px;margin-top:4px;" onclick="abortTest()">■ 中止測試</button>
+</div>
+
+<!-- ══ RESULT PANEL ══ -->
+<div class="res-panel" id="resPanel">
+  <div class="tbadge" id="rBadge">結果</div>
+  <div class="res-title" id="rTitle">測試結果</div>
+  <div class="res-grid" id="rGrid"></div>
+  <div class="res-cw"><canvas id="resChart"></canvas></div>
+  <div class="res-btns">
+    <button class="btn btn-ghost" onclick="closeResult()">關閉</button>
+    <button class="btn btn-o" onclick="closeResult()" style="font-size:13px;font-weight:700;">💾 儲存</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let connected = false;
+let hrConnected = false;
+let demoMode = false;
+let running = false;
+let seconds = 0;
+let timerInt = null, simInt = null;
+let pwrBuf = [], rpmBuf = [], lblBuf = [];
+const MAX_PTS = 45;
+let totalPwr = 0, maxP = 0, totalRpm = 0, sN = 0, totalDist = 0;
+let ctrlMode = 'ERG'; // ERG | KP | RES
+let curRPM = 80; // for KP watt conversion
+let testState = null;
+let currentTestMode = null;
+let resChartInst = null;
+let liveChartInst = null;
+// Calibration
+const CAL_RPMS = [40, 60, 80, 100, 120];
+const KP_DEFAULT = 3.0; // kp used for calibration
+const MONARK_CONST = 0.6;
+let calMMatrix = {}; // {rpm: M}
+let calDone = false;
+
+// ══════════════════════════════════════════
+//  HISTORY CHART
+// ══════════════════════════════════════════
+const hctx = document.getElementById('histChart').getContext('2d');
+const histChart = new Chart(hctx, {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: '功率', data: [], borderColor: '#e8701a', backgroundColor: 'rgba(232,112,26,.07)', borderWidth: 1.5, pointRadius: 0, tension: .4, fill: true, yAxisID: 'y1' },
+    { label: '踏頻', data: [], borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,.05)', borderWidth: 1.5, pointRadius: 0, tension: .4, fill: true, yAxisID: 'y2' }
+  ]},
+  options: { responsive:true, maintainAspectRatio:false, animation:false,
+    plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#181c23',borderColor:'#252a35',borderWidth:1,titleColor:'#7a8299',bodyColor:'#e8eaf0',titleFont:{family:'Share Tech Mono',size:9},bodyFont:{family:'Share Tech Mono',size:10}} },
+    scales: {
+      x:{ ticks:{color:'#3e4557',font:{family:'Share Tech Mono',size:8},maxTicksLimit:6}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} },
+      y1:{ type:'linear', position:'left', min:0, max:800, ticks:{color:'#e8701a',font:{family:'Share Tech Mono',size:8},maxTicksLimit:5}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} },
+      y2:{ type:'linear', position:'right', min:0, max:180, ticks:{color:'#00e5a0',font:{family:'Share Tech Mono',size:8},maxTicksLimit:5}, grid:{display:false}, border:{color:'#252a35'} }
+    }
+  }
+});
+
+// ══════════════════════════════════════════
+//  GAUGE
+// ══════════════════════════════════════════
+function setGauge(w) {
+  const pct = Math.min(w / 800, 1);
+  document.getElementById('gFill').setAttribute('stroke-dashoffset', 267 - pct * 267);
+  document.getElementById('gNeedle').setAttribute('transform', `rotate(${pct * 150 - 150} 95 105)`);
+  document.getElementById('gPow').textContent = Math.round(w);
+}
+
+// ══════════════════════════════════════════
+//  PUSH DATA
+// ══════════════════════════════════════════
+function pushData(w, rpm, hr) {
+  const t = fmt(seconds);
+  if (lblBuf.length >= MAX_PTS) { lblBuf.shift(); pwrBuf.shift(); rpmBuf.shift(); }
+  lblBuf.push(t); pwrBuf.push(w); rpmBuf.push(rpm);
+  histChart.data.labels = [...lblBuf];
+  histChart.data.datasets[0].data = [...pwrBuf];
+  histChart.data.datasets[1].data = [...rpmBuf];
+  histChart.update('none');
+  sN++; totalPwr += w; totalRpm += rpm;
+  if (w > maxP) maxP = w;
+  totalDist += rpm * 0.032 * 0.27;
+  const avgW = Math.round(totalPwr / sN);
+  const avgR = Math.round(totalRpm / sN);
+  set('avgPwr', avgW); set('maxPwr', maxP); set('avgRpm', avgR);
+  set('kcal', Math.round(avgW * seconds / 200));
+  set('sumAvg', avgW + ' W'); set('sumMax', '最大 ' + maxP + ' W');
+  set('speed', (rpm * 0.032).toFixed(1)); set('cadence', rpm);
+  set('dist', Math.round(totalDist));
+  setGauge(w);
+  curRPM = rpm;
+  // HR
+  if (hr) {
+    set('hrVal', hr);
+    document.getElementById('hrBar').style.width = Math.min((hr - 50) / 130 * 100, 100) + '%';
+    const zone = hr < 100 ? '休息區' : hr < 130 ? 'Zone 2' : hr < 150 ? 'Zone 3' : hr < 170 ? 'Zone 4' : 'Zone 5 VO2max';
+    set('hrZone', zone);
+  }
+  // KP watt preview
+  kpWattPreview();
+}
+
+function set(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function fmt(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+
+// ══════════════════════════════════════════
+//  DEMO SIMULATION
+// ══════════════════════════════════════════
+function simW() {
+  if (currentTestMode === 'wingate') return Math.round(350 + (Math.random() - .5) * 80);
+  if (currentTestMode === 'anaerobic') return Math.round(300 + (Math.random() - .5) * 60);
+  if (currentTestMode === 'interval') return Math.round(Math.random() > .5 ? 220 : 80 + (Math.random() - .5) * 20);
+  return Math.round(140 + (Math.random() - .5) * 50);
+}
+function simRPM() {
+  if (currentTestMode === 'wingate') return Math.round(112 + (Math.random() - .5) * 18);
+  if (currentTestMode === 'anaerobic') return Math.round(105 + (Math.random() - .5) * 18);
+  return Math.round(90 + (Math.random() - .5) * 18);
+}
+function simHR(w) { return Math.round(105 + w / 800 * 75 + (Math.random() - .5) * 5); }
+
+// ══════════════════════════════════════════
+//  TIMER & CONTROL
+// ══════════════════════════════════════════
+function startTimer() {
+  timerInt = setInterval(() => {
+    seconds++;
+    const t = fmt(seconds);
+    set('timerDisp', t); set('cTimer', t);
+  }, 1000);
+}
+
+function toggleStart() {
+  running = !running;
+  const b = document.getElementById('btnStart');
+  if (running) {
+    b.textContent = '⏸ 暫停'; b.style.background = 'var(--green)'; b.style.color = '#000';
+    startTimer();
+    simInt = setInterval(() => {
+      if (!demoMode && connected) return; // real data comes from BLE
+      const w = simW(), rpm = simRPM(), hr = simHR(w);
+      pushData(w, rpm, hr);
+    }, 1000);
+  } else {
+    b.textContent = '▶ 啟動'; b.style.background = ''; b.style.color = '';
+    clearInterval(timerInt); clearInterval(simInt);
+  }
+}
+
+function stopAll() {
+  running = false; clearInterval(timerInt); clearInterval(simInt);
+  const b = document.getElementById('btnStart');
+  b.textContent = '▶ 啟動'; b.style.background = ''; b.style.color = '';
+}
+
+function resetAll() {
+  stopAll(); seconds = 0; totalPwr = 0; maxP = 0; totalRpm = 0; sN = 0; totalDist = 0;
+  ['timerDisp','cTimer'].forEach(i => set(i, '00:00'));
+  ['avgPwr','maxPwr','avgRpm','kcal','cadence','dist'].forEach(i => set(i, '0'));
+  set('speed', '0.0'); set('hrVal', '—'); set('hrZone', '—'); set('hrBar', '');
+  document.getElementById('hrBar').style.width = '0%';
+  set('sumAvg', '0 W'); set('sumMax', '最大 0 W');
+  setGauge(0);
+  lblBuf = []; pwrBuf = []; rpmBuf = [];
+  histChart.data.labels = []; histChart.data.datasets[0].data = []; histChart.data.datasets[1].data = [];
+  histChart.update('none');
+}
+
+// ══════════════════════════════════════════
+//  TRAINER CONTROL MODES
+// ══════════════════════════════════════════
+function setCtrlMode(mode, btn) {
+  ctrlMode = mode;
+  document.querySelectorAll('.ctrl-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['ERG', 'KP', 'RES'].forEach(m => document.getElementById('ctrl' + m).style.display = m === mode ? '' : 'none');
+}
+
+function ergUpdate(v) {
+  set('ergWatt', v); set('ergCur', '目標：' + v + ' W');
+  set('ergConvert', '直接傳送 ' + v + ' W 至訓練器');
+}
+
+function kpUpdate(raw) {
+  const kp = (raw / 10).toFixed(1);
+  set('kpVal', kp); set('kpCur', kp + ' kp');
+  kpWattPreview();
+}
+
+function kpWattPreview() {
+  const kp = parseFloat(document.getElementById('kpSlider').value) / 10;
+  const rpm = curRPM || 80;
+  const w = Math.round(kp * rpm * MONARK_CONST);
+  set('kpWattOut', w);
+  set('kpConvert', `≈ ${w} W  (${kp} kp × ${rpm} rpm × ${MONARK_CONST})`);
+}
+
+function resUpdate(v) {
+  set('resLvl', v);
+  const pct = Math.round(v / 160 * 100);
+  const w = v * 5;
+  set('resCur', `段位：${v} (${pct}%)`);
+  set('resWattOut', w);
+  set('resConvert', `段位 ${v} ≈ ${w} W (每段 5W)`);
+}
+
+function sendCtrl() {
+  let msg = '';
+  if (ctrlMode === 'ERG') {
+    const w = document.getElementById('ergSlider').value;
+    msg = `📡 ERG: ${w} W 已送出`;
+  } else if (ctrlMode === 'KP') {
+    const kp = (document.getElementById('kpSlider').value / 10).toFixed(1);
+    const w = Math.round(kp * (curRPM || 80) * MONARK_CONST);
+    msg = `📡 KP: ${kp} kp → ${w} W 已送出`;
+  } else {
+    const lvl = document.getElementById('resSlider').value;
+    msg = `📡 阻力: 段位 ${lvl} 已送出`;
+  }
+  const el = document.getElementById('ctrlSentMsg');
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ''; }, 2500);
+}
+
+// ══════════════════════════════════════════
+//  DEMO MODE
+// ══════════════════════════════════════════
+function toggleDemo() {
+  demoMode = !demoMode;
+  const p = document.getElementById('demoPill');
+  p.textContent = 'DEMO';
+  p.className = demoMode ? 'demo-pill' : 'demo-pill off';
+  if (demoMode && running) { /* already running */ }
+}
+
+// ══════════════════════════════════════════
+//  WEB BLUETOOTH API — FTMS REAL CONNECTION
+// ══════════════════════════════════════════
+
+// FTMS BLE UUIDs
+const FTMS_UUID         = '00001826-0000-1000-8000-00805f9b34fb';
+const INDOOR_BIKE_UUID  = '00002ad2-0000-1000-8000-00805f9b34fb'; // notify: power, rpm, speed
+const FITNESS_CTRL_UUID = '00002ad9-0000-1000-8000-00805f9b34fb'; // write: ERG / resistance
+const CYCLING_PWR_UUID  = '00001818-0000-1000-8000-00805f9b34fb'; // alt power service
+const CYCLING_PWR_MEAS  = '00002a63-0000-1000-8000-00805f9b34fb';
+
+// HR BLE UUIDs
+const HR_SERVICE_UUID   = '0000180d-0000-1000-8000-00805f9b34fb';
+const HR_MEASURE_UUID   = '00002a37-0000-1000-8000-00805f9b34fb';
+
+// FTMS Control Point Op Codes
+const OP_SET_TARGET_POWER      = 0x05; // ERG: 2-byte sint16 watts
+const OP_SET_RESISTANCE_LEVEL  = 0x04; // RES: 1-byte unitless
+const OP_SET_INDOOR_BIKE_SIM   = 0x11; // SIM: slope etc.
+const OP_REQUEST_CONTROL       = 0x00;
+const OP_RESET                 = 0x01;
+
+let bleDevice     = null;
+let bleServer     = null;
+let ftmsService   = null;
+let ctrlChar      = null;  // fitness machine control point
+let hrDevice      = null;
+let hrServer      = null;
+
+// ── open modal ──
+function openBLEModal() {
+  const modal = document.getElementById('bleScanModal');
+  modal.classList.add('open');
+  setBLEState('ready');
+
+  if (!navigator.bluetooth) {
+    setBLEState('unsupported');
+    return;
+  }
+}
+
+function closeBLEModal() {
+  document.getElementById('bleScanModal').classList.remove('open');
+}
+
+// ── UI state machine ──
+function setBLEState(state, msg) {
+  ['bleUnsupported','bleReady','bleConnecting','bleConnected','bleError'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  const scanBtn = document.getElementById('bleScanBtn');
+  switch(state) {
+    case 'unsupported':
+      document.getElementById('bleUnsupported').style.display = '';
+      scanBtn.disabled = true; scanBtn.style.opacity = '.4';
+      break;
+    case 'ready':
+      document.getElementById('bleReady').style.display = '';
+      scanBtn.disabled = false; scanBtn.style.opacity = '1';
+      scanBtn.textContent = '📶 掃描 FTMS 裝置';
+      break;
+    case 'connecting':
+      document.getElementById('bleConnecting').style.display = '';
+      document.getElementById('bleConnMsg').textContent = msg || '正在連線中…';
+      scanBtn.disabled = true; scanBtn.style.opacity = '.4';
+      break;
+    case 'connected':
+      document.getElementById('bleConnected').style.display = '';
+      scanBtn.disabled = true; scanBtn.style.opacity = '.4';
+      break;
+    case 'error':
+      document.getElementById('bleError').style.display = '';
+      document.getElementById('bleError').textContent = msg || '連線失敗';
+      scanBtn.disabled = false; scanBtn.style.opacity = '1';
+      scanBtn.textContent = '🔄 重試';
+      break;
+  }
+}
+
+// ── Main scan & connect ──
+async function startBLEScan() {
+  if (!navigator.bluetooth) { setBLEState('unsupported'); return; }
+  setBLEState('connecting', '開啟系統藍牙選擇視窗…');
+  try {
+    // Request FTMS trainer (also accept generic cycling power service)
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { services: [FTMS_UUID] },
+        { services: [CYCLING_PWR_UUID] },
+        { namePrefix: 'KICKR' },
+        { namePrefix: 'TACX' },
+        { namePrefix: 'Elite' },
+        { namePrefix: 'Saris' },
+        { namePrefix: 'Suito' },
+        { namePrefix: 'NEO' },
+      ],
+      optionalServices: [FTMS_UUID, CYCLING_PWR_UUID]
+    });
+
+    bleDevice.addEventListener('gattserverdisconnected', onFTMSDisconnected);
+    setBLEState('connecting', `連接 ${bleDevice.name}…`);
+
+    bleServer = await bleDevice.gatt.connect();
+    setBLEState('connecting', '取得 FTMS 服務…');
+
+    // Try FTMS service first, fall back to Cycling Power
+    let indoorBikeChar = null;
+    try {
+      ftmsService = await bleServer.getPrimaryService(FTMS_UUID);
+      setBLEState('connecting', '訂閱 Indoor Bike Data…');
+      indoorBikeChar = await ftmsService.getCharacteristic(INDOOR_BIKE_UUID);
+      await indoorBikeChar.startNotifications();
+      indoorBikeChar.addEventListener('characteristicvaluechanged', onIndoorBikeData);
+
+      // Get control point
+      try {
+        ctrlChar = await ftmsService.getCharacteristic(FITNESS_CTRL_UUID);
+        // Request control
+        await ctrlChar.writeValue(new Uint8Array([OP_REQUEST_CONTROL]));
+      } catch(e) { ctrlChar = null; /* some devices don't expose ctrl */ }
+
+    } catch(e) {
+      // Fall back to Cycling Power Service
+      try {
+        const cpService = await bleServer.getPrimaryService(CYCLING_PWR_UUID);
+        const cpChar = await cpService.getCharacteristic(CYCLING_PWR_MEAS);
+        await cpChar.startNotifications();
+        cpChar.addEventListener('characteristicvaluechanged', onCyclingPowerData);
+      } catch(e2) {
+        throw new Error('找不到 FTMS 或 Cycling Power 服務，裝置可能不相容');
+      }
+    }
+
+    // Connected!
+    onFTMSConnected(bleDevice.name);
+
+  } catch(err) {
+    if (err.name === 'NotFoundError' || err.message.includes('cancelled')) {
+      setBLEState('ready'); // user cancelled picker — just go back
+    } else {
+      setBLEState('error', '❌ ' + err.message);
+    }
+    bleDevice = null;
+  }
+}
+
+function onFTMSConnected(name) {
+  connected = true; demoMode = false;
+  document.getElementById('bleConnectedName').textContent = '✅ ' + name;
+  document.getElementById('bleConnectedSub').textContent = 'FTMS 連線成功，即時數據接收中';
+  setBLEState('connected');
+  document.getElementById('connDot').className = 'dot on';
+  document.getElementById('connTxt').textContent = name;
+  document.getElementById('connPill').className = 'conn-pill connected';
+  document.getElementById('demoPill').className = 'demo-pill off';
+  set('footerTxt', `BLE FTMS：${name}`);
+  document.getElementById('navCal').classList.remove('locked');
+  // auto-close after 1.5s and go to dashboard
+  setTimeout(() => {
+    closeBLEModal();
+    if (document.getElementById('vDisc').classList.contains('active')) showPage('Dash');
+  }, 1500);
+}
+
+function onFTMSDisconnected() {
+  connected = false;
+  document.getElementById('connDot').className = 'dot';
+  document.getElementById('connTxt').textContent = '已斷線';
+  document.getElementById('connPill').className = 'conn-pill';
+  set('footerTxt', '藍牙已斷線');
+  stopAll();
+  // Show reconnect toast
+  showToast('⚠ 藍牙訓練台已斷線', 'var(--red)');
+}
+
+// ══════════════════════════════════════════
+//  CADENCE SOURCE MANAGEMENT
+// ══════════════════════════════════════════
+// Priority: external sensor > trainer FTMS > Cycling Power cadence
+// 'trainer' | 'ble_csc' | 'ble_hrm_rr' | 'antplus'
+let cadenceSource = 'trainer';
+let lastExternalRPM = null;
+let externalCadenceDevice = null;
+let externalCadenceServer = null;
+
+// CSC UUIDs (BLE Cycling Speed & Cadence)
+const CSC_SERVICE_UUID  = '00001816-0000-1000-8000-00805f9b34fb';
+const CSC_MEASURE_UUID  = '00002a5b-0000-1000-8000-00805f9b34fb';
+
+// CSC rolling state for RPM calculation
+let cscLastCrankRevs  = null;
+let cscLastCrankTime  = null; // 1/1024 s units
+let cpLastCrankRevs   = null;  // for Cycling Power fallback
+let cpLastCrankTime   = null;
+
+// ── Parse Indoor Bike Data (FTMS 0x2AD2) ──
+// FTMS Assigned Numbers §3.103 — Flags define present fields
+function onIndoorBikeData(event) {
+  const d = event.target.value;
+  let off = 0;
+  const flags = d.getUint16(off, true); off += 2;
+
+  let speed = 0, cadence = 0, power = 0, hr = 0;
+
+  // Bit 0 = 0 → Instantaneous Speed present (uint16, km/h × 0.01)
+  if (!(flags & 0x0001)) {
+    speed = d.getUint16(off, true) * 0.01; off += 2;
+  }
+  // Bit 1 → Average Speed present
+  if (flags & 0x0002) off += 2;
+  // Bit 2 → Instantaneous Cadence present (uint16, rpm × 0.5)
+  if (flags & 0x0004) {
+    cadence = d.getUint16(off, true) * 0.5; off += 2;
+  }
+  // Bit 3 → Average Cadence present
+  if (flags & 0x0008) off += 2;
+  // Bit 4 → Total Distance present (uint24)
+  if (flags & 0x0010) { off += 3; }
+  // Bit 5 → Resistance Level present (sint16)
+  if (flags & 0x0020) off += 2;
+  // Bit 6 → Instantaneous Power present (sint16, watts)
+  if (flags & 0x0040) {
+    power = d.getInt16(off, true); off += 2;
+  }
+  // Bit 7 → Average Power
+  if (flags & 0x0080) off += 2;
+  // Bit 8 → Expended Energy (uint16 total, uint16 per hour, uint8 per minute)
+  if (flags & 0x0100) off += 5;
+  // Bit 9 → Heart Rate (uint8)
+  if (flags & 0x0200) { hr = d.getUint8(off); off += 1; }
+  // Bit 10 → Metabolic Equivalent
+  if (flags & 0x0400) off += 1;
+  // Bit 11 → Elapsed Time
+  if (flags & 0x0800) off += 2;
+  // Bit 12 → Remaining Time
+  if (flags & 0x1000) off += 2;
+
+  // Decide cadence source: external sensor takes priority
+  const finalRPM = (cadenceSource !== 'trainer' && lastExternalRPM !== null)
+    ? lastExternalRPM
+    : Math.round(cadence);
+
+  updateCadenceSourceBadge(cadenceSource !== 'trainer' && lastExternalRPM !== null
+    ? cadenceSource : 'trainer', finalRPM);
+
+  if (running || !running) { // always update display even when paused
+    pushData(power || 0, finalRPM, hr || null);
+    if (speed > 0) set('speed', speed.toFixed(1));
+  }
+}
+
+// ── Parse Cycling Power Measurement (fallback 0x2A63) ──
+// Must calculate RPM from cumulative crank revolution data
+function onCyclingPowerData(event) {
+  const d = event.target.value;
+  const flags = d.getUint16(0, true);
+  const power = d.getInt16(2, true); // always present
+
+  let cadence = 0;
+  // Bit 4 → Crank Revolution Data present
+  if (flags & 0x0010) {
+    const crankRevs = d.getUint16(4, true);         // cumulative crank revolutions
+    const crankTime = d.getUint16(6, true);         // last crank event time (1/1024 s)
+    cadence = calcRPMfromCrank(crankRevs, crankTime, 'cp');
+  }
+
+  const finalRPM = (cadenceSource !== 'trainer' && lastExternalRPM !== null)
+    ? lastExternalRPM : cadence;
+  updateCadenceSourceBadge(cadenceSource !== 'trainer' && lastExternalRPM !== null
+    ? cadenceSource : 'trainer', finalRPM);
+  if (running) pushData(power, finalRPM, null);
+}
+
+// ── Parse CSC Measurement (external BLE sensor 0x2A5B) ──
+function onCSCData(event) {
+  const d = event.target.value;
+  const flags = d.getUint8(0);
+  let off = 1;
+
+  // Bit 0 → Wheel Revolution Data
+  if (flags & 0x01) off += 6; // skip cumulative wheel revs (uint32) + event time (uint16)
+
+  // Bit 1 → Crank Revolution Data
+  if (flags & 0x02) {
+    const crankRevs = d.getUint16(off, true); off += 2;
+    const crankTime = d.getUint16(off, true); // 1/1024 s
+    const rpm = calcRPMfromCrank(crankRevs, crankTime, 'csc');
+    if (rpm !== null && rpm >= 0 && rpm <= 220) {
+      lastExternalRPM = Math.round(rpm);
+      cadenceSource = 'ble_csc';
+      updateCadenceSourceBadge('ble_csc', lastExternalRPM);
+    }
+  }
+}
+
+// ── RPM from cumulative crank revolutions ──
+function calcRPMfromCrank(revs, eventTime, key) {
+  const prevRevs = key === 'csc' ? cscLastCrankRevs : cpLastCrankRevs;
+  const prevTime = key === 'csc' ? cscLastCrankTime : cpLastCrankTime;
+
+  if (prevRevs === null || prevTime === null) {
+    if (key === 'csc') { cscLastCrankRevs = revs; cscLastCrankTime = eventTime; }
+    else               { cpLastCrankRevs  = revs; cpLastCrankTime  = eventTime; }
+    return 0;
+  }
+
+  let deltaRevs = revs - prevRevs;
+  let deltaTime = eventTime - prevTime;
+
+  // Handle 16-bit rollover
+  if (deltaRevs < 0) deltaRevs += 65536;
+  if (deltaTime < 0) deltaTime += 65536;
+  if (deltaTime === 0) return 0;
+
+  if (key === 'csc') { cscLastCrankRevs = revs; cscLastCrankTime = eventTime; }
+  else               { cpLastCrankRevs  = revs; cpLastCrankTime  = eventTime; }
+
+  // deltaTime is in 1/1024 seconds; convert to minutes for RPM
+  return (deltaRevs / (deltaTime / 1024)) * 60;
+}
+
+// ── Update cadence source badge in UI ──
+function updateCadenceSourceBadge(src, rpm) {
+  const srcEl = document.getElementById('cadenceSrc');
+  if (!srcEl) return;
+  const labels = {
+    'trainer': '訓練台',
+    'ble_csc': '外部踏頻 BLE',
+    'antplus':  '外部踏頻 ANT+',
+  };
+  srcEl.textContent = labels[src] || src;
+  srcEl.style.color = src === 'trainer' ? 'var(--txt3)' : 'var(--cyan)';
+}
+
+// ══════════════════════════════════════════
+//  EXTERNAL CADENCE SENSOR — BLE CSC
+// ══════════════════════════════════════════
+async function connectExternalCadence() {
+  if (!navigator.bluetooth) { showToast('❌ 瀏覽器不支援 Web Bluetooth', 'var(--red)'); return; }
+  const btn = document.getElementById('cadSensorBtn');
+  btn.textContent = '🔍 掃描中…'; btn.disabled = true;
+  try {
+    externalCadenceDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { services: [CSC_SERVICE_UUID] },
+        { namePrefix: 'Garmin' },
+        { namePrefix: 'Wahoo' },
+        { namePrefix: 'Polar' },
+        { namePrefix: 'Bontrager' },
+        { namePrefix: 'Magene' },
+        { namePrefix: 'CADENCE' },
+        { namePrefix: 'CAD' },
+      ],
+      optionalServices: [CSC_SERVICE_UUID]
+    });
+
+    externalCadenceDevice.addEventListener('gattserverdisconnected', () => {
+      cadenceSource = 'trainer'; lastExternalRPM = null;
+      cscLastCrankRevs = null; cscLastCrankTime = null;
+      btn.textContent = '+ 連接外部踏頻器'; btn.disabled = false;
+      updateCadenceSourceBadge('trainer', 0);
+      showToast('外部踏頻器已斷線，切換回訓練台數值', 'var(--orange)');
+    });
+
+    externalCadenceServer = await externalCadenceDevice.gatt.connect();
+    const cscSvc  = await externalCadenceServer.getPrimaryService(CSC_SERVICE_UUID);
+    const cscChar = await cscSvc.getCharacteristic(CSC_MEASURE_UUID);
+    await cscChar.startNotifications();
+    cscChar.addEventListener('characteristicvaluechanged', onCSCData);
+
+    cadenceSource = 'ble_csc';
+    btn.textContent = `✅ ${externalCadenceDevice.name || 'CSC Sensor'}`;
+    btn.disabled = false;
+    btn.style.color = 'var(--cyan)'; btn.style.borderColor = 'var(--cyan)';
+    showToast(`💚 外部踏頻器連線：${externalCadenceDevice.name || 'CSC Sensor'}`, 'var(--green)');
+
+  } catch(err) {
+    btn.textContent = '+ 連接外部踏頻器'; btn.disabled = false;
+    if (err.name !== 'NotFoundError') showToast('踏頻器連線失敗：' + err.message, 'var(--red)');
+  }
+}
+
+function showANTModal() { document.getElementById('antModal').classList.add('open'); }
+function closeANTModal() { document.getElementById('antModal').classList.remove('open'); }
+
+// ── ANT+ via WebSocket bridge ──
+let antWS = null;
+function connectANTWebSocket() {
+  const url = document.getElementById('wsUrl').value.trim();
+  const statusEl = document.getElementById('wsStatus');
+  if (antWS) { antWS.close(); antWS = null; }
+  statusEl.textContent = '連線中…'; statusEl.style.color = 'var(--txt2)';
+  try {
+    antWS = new WebSocket(url);
+    antWS.onopen = () => {
+      statusEl.textContent = '✅ WebSocket 已連線，等待 ANT+ 數據…';
+      statusEl.style.color = 'var(--green)';
+      showToast('ANT+ WebSocket 已連線', 'var(--green)');
+    };
+    antWS.onmessage = (ev) => {
+      // Expected JSON: { "cadence": 85 }  or  { "rpm": 85 }
+      try {
+        const msg = JSON.parse(ev.data);
+        const rpm = msg.cadence ?? msg.rpm ?? msg.cad ?? null;
+        if (rpm !== null && rpm >= 0 && rpm <= 220) {
+          lastExternalRPM = Math.round(rpm);
+          cadenceSource = 'antplus';
+          set('cadence', lastExternalRPM);
+          updateCadenceSourceBadge('antplus', lastExternalRPM);
+        }
+      } catch(e) { /* ignore parse errors */ }
+    };
+    antWS.onerror = () => {
+      statusEl.textContent = '❌ 無法連線，請確認橋接程式已啟動';
+      statusEl.style.color = 'var(--red)';
+    };
+    antWS.onclose = () => {
+      if (cadenceSource === 'antplus') {
+        cadenceSource = 'trainer'; lastExternalRPM = null;
+        updateCadenceSourceBadge('trainer', 0);
+        showToast('ANT+ 橋接已斷線，切換回訓練台', 'var(--orange)');
+      }
+    };
+  } catch(e) {
+    statusEl.textContent = '❌ ' + e.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+// ── FTMS Control Point commands ──
+async function sendFTMSCommand(bytes) {
+  if (!ctrlChar) return false;
+  try {
+    await ctrlChar.writeValue(new Uint8Array(bytes));
+    return true;
+  } catch(e) {
+    console.warn('FTMS write error:', e);
+    return false;
+  }
+}
+
+async function sendERGWatts(watts) {
+  // Op 0x05 + sint16 LE
+  const w = Math.max(0, Math.min(watts, 4000));
+  const lo = w & 0xFF, hi = (w >> 8) & 0xFF;
+  return await sendFTMSCommand([OP_SET_TARGET_POWER, lo, hi]);
+}
+
+async function sendResistanceLevel(level) {
+  // Op 0x04 + sint16 LE (0–100 unitless)
+  const val = Math.max(0, Math.min(level, 100));
+  return await sendFTMSCommand([OP_SET_RESISTANCE_LEVEL, val, 0]);
+}
+
+// ── Disconnect ──
+async function disconnectBLE() {
+  if (bleDevice && bleDevice.gatt.connected) {
+    await bleDevice.gatt.disconnect();
+  }
+  bleDevice = null; bleServer = null; ftmsService = null; ctrlChar = null;
+}
+
+// ── HR via separate BLE device ──
+async function connectHR() {
+  if (!navigator.bluetooth) { alert('此瀏覽器不支援 Web Bluetooth'); return; }
+  const btn = document.getElementById('hrConnBtn');
+  btn.textContent = '🔍 掃描心率帶…'; btn.disabled = true;
+  try {
+    hrDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [HR_SERVICE_UUID] }],
+      optionalServices: [HR_SERVICE_UUID]
+    });
+    hrDevice.addEventListener('gattserverdisconnected', () => {
+      hrConnected = false;
+      btn.textContent = '💓 連接藍牙心率帶'; btn.className = 'btn btn-c'; btn.disabled = false;
+      set('hrSource', '已斷線'); showToast('💔 心率帶已斷線', 'var(--red)');
+    });
+    hrServer = await hrDevice.gatt.connect();
+    const hrSvc = await hrServer.getPrimaryService(HR_SERVICE_UUID);
+    const hrChar = await hrSvc.getCharacteristic(HR_MEASURE_UUID);
+    await hrChar.startNotifications();
+    hrChar.addEventListener('characteristicvaluechanged', onHRData);
+
+    hrConnected = true;
+    btn.textContent = `💓 ${hrDevice.name || 'HR'} 已連線`;
+    btn.className = 'btn btn-g on'; btn.disabled = false;
+    set('hrSource', 'BLE HR · ' + (hrDevice.name || ''));
+    showToast('💓 心率帶連線成功', 'var(--green)');
+  } catch(err) {
+    btn.textContent = '💓 連接藍牙心率帶'; btn.disabled = false;
+    if (err.name !== 'NotFoundError') showToast('心率帶連線失敗：' + err.message, 'var(--red)');
+  }
+}
+
+function onHRData(event) {
+  const data = event.target.value;
+  const flags = data.getUint8(0);
+  const hr = flags & 0x01 ? data.getUint16(1, true) : data.getUint8(1);
+  set('hrVal', hr);
+  document.getElementById('hrBar').style.width = Math.min((hr - 50) / 130 * 100, 100) + '%';
+  const zone = hr < 100 ? '休息' : hr < 120 ? 'Zone 1' : hr < 140 ? 'Zone 2' : hr < 155 ? 'Zone 3' : hr < 170 ? 'Zone 4' : 'Zone 5';
+  set('hrZone', zone);
+}
+
+// ── Demo / USB fallback ──
+function connectDemo() {
+  closeBLEModal();
+  connected = true; demoMode = true;
+  document.getElementById('connDot').className = 'dot on';
+  document.getElementById('connTxt').textContent = 'DEMO 模式';
+  document.getElementById('connPill').className = 'conn-pill connected';
+  document.getElementById('demoPill').className = 'demo-pill';
+  set('footerTxt', 'DEMO 模擬模式 (無硬體)');
+  document.getElementById('navCal').classList.remove('locked');
+  if (document.getElementById('vDisc').classList.contains('active')) showPage('Dash');
+}
+
+function connectUSB() {
+  connected = true; demoMode = true;
+  document.getElementById('connDot').className = 'dot on';
+  document.getElementById('connTxt').textContent = 'USB 串口';
+  document.getElementById('connPill').className = 'conn-pill connected';
+  document.getElementById('demoPill').className = 'demo-pill';
+  set('footerTxt', 'USB UART 已連線 (模擬)');
+  document.getElementById('navCal').classList.remove('locked');
+  showPage('Dash');
+}
+
+// ── Override sendCtrl to use real BLE ──
+async function sendCtrl() {
+  let msg = '';
+  let sent = false;
+  if (ctrlMode === 'ERG') {
+    const w = parseInt(document.getElementById('ergSlider').value);
+    if (ctrlChar) { sent = await sendERGWatts(w); }
+    msg = sent ? `📡 ERG: ${w} W → 已送出訓練台` : `📡 ERG: ${w} W (${ctrlChar ? '發送失敗' : 'DEMO'})`;
+  } else if (ctrlMode === 'KP') {
+    const kp = (document.getElementById('kpSlider').value / 10).toFixed(1);
+    const w = Math.round(kp * (curRPM || 80) * MONARK_CONST);
+    if (ctrlChar) { sent = await sendERGWatts(w); }
+    msg = sent ? `📡 KP: ${kp} kp → ${w} W 已送出` : `📡 KP: ${kp} kp → ${w} W (DEMO)`;
+  } else {
+    const lvl = parseInt(document.getElementById('resSlider').value);
+    // Map 1-160 → 0-100 for FTMS resistance
+    const ftmsLvl = Math.round((lvl - 1) / 159 * 100);
+    if (ctrlChar) { sent = await sendResistanceLevel(ftmsLvl); }
+    msg = sent ? `📡 阻力: 段位 ${lvl} 已送出` : `📡 阻力: 段位 ${lvl} (DEMO)`;
+  }
+  const el = document.getElementById('ctrlSentMsg');
+  el.textContent = msg;
+  el.style.color = sent ? 'var(--green)' : 'var(--txt2)';
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// ── Toast notification ──
+function showToast(msg, color) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 18px;border-radius:20px;font-size:13px;font-family:Rajdhani,sans-serif;font-weight:600;z-index:999;transition:opacity .4s;pointer-events:none;border:1px solid;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = 'var(--bg2)';
+  t.style.color = color || 'var(--txt)';
+  t.style.borderColor = color || 'var(--border2)';
+  t.style.opacity = '1';
+  clearTimeout(t._to);
+  t._to = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+}
+
+// ══════════════════════════════════════════
+//  PAGE NAVIGATION
+// ══════════════════════════════════════════
+function showPage(page) {
+  if (!connected && page !== 'Disc') { alert('請先連線訓練器'); return; }
+  ['Disc', 'Dash', 'Cal'].forEach(p => {
+    document.getElementById('v' + p).classList.toggle('active', p === page);
+  });
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const nb = document.getElementById('nav' + page);
+  if (nb) nb.classList.add('active');
+  if (page === 'Cal') initCal();
+}
+
+// ══════════════════════════════════════════
+//  CALIBRATION
+// ══════════════════════════════════════════
+const CAL_KP = 3.0;
+let calInited = false;
+let liveChartData = { labels: [], m_vals: [] };
+
+function initCal() {
+  if (calInited) return; calInited = true;
+  buildKPTable();
+  buildLiveChart();
+}
+
+// Reference power for each RPM at KP_DEFAULT using Monark formula
+function refPower(rpm) { return +(CAL_KP * rpm * MONARK_CONST).toFixed(1); }
+
+function buildKPTable() {
+  const tb = document.getElementById('kpTableBody');
+  tb.innerHTML = '';
+  CAL_RPMS.forEach(rpm => {
+    const ref = refPower(rpm);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rpm-h">${rpm}</td>
+      <td class="ref-val">${CAL_KP}</td>
+      <td class="ref-val">${ref}</td>
+      <td><input class="kp-input" id="inp_${rpm}" type="number" placeholder="${ref}" min="1" max="2000" step="0.1" oninput="liveM(${rpm})"></td>
+      <td class="m-empty" id="m_${rpm}">—</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function liveM(rpm) {
+  const ref = refPower(rpm);
+  const inp = parseFloat(document.getElementById('inp_' + rpm).value);
+  if (isNaN(inp) || inp <= 0) { document.getElementById('m_' + rpm).textContent = '—'; document.getElementById('m_' + rpm).className = 'm-empty'; return; }
+  const m = +(ref / inp).toFixed(4);
+  const el = document.getElementById('m_' + rpm);
+  el.textContent = m.toFixed(4); el.className = 'm-val';
+}
+
+function calcKPMatrix() {
+  let allFilled = true;
+  CAL_RPMS.forEach(rpm => {
+    const inp = parseFloat(document.getElementById('inp_' + rpm).value);
+    if (isNaN(inp) || inp <= 0) { allFilled = false; }
+  });
+  if (!allFilled) { alert('請填寫所有 RPM 點的實測功率'); return; }
+  calMMatrix = {};
+  CAL_RPMS.forEach(rpm => {
+    const ref = refPower(rpm);
+    const measured = parseFloat(document.getElementById('inp_' + rpm).value);
+    calMMatrix[rpm] = +(ref / measured).toFixed(4);
+    liveM(rpm);
+  });
+  renderCoeffGrid();
+  document.getElementById('mCalcProg').style.width = '100%';
+  updateLiveComp();
+  document.getElementById('valBtn').disabled = false; document.getElementById('valBtn').style.opacity = '1';
+  renderExport();
+  calDone = true;
+}
+
+function fillDemoData() {
+  const demo = { 40: 69.8, 60: 104.5, 80: 138.2, 100: 174.0, 120: 208.8 };
+  CAL_RPMS.forEach(rpm => {
+    const el = document.getElementById('inp_' + rpm);
+    el.value = demo[rpm]; liveM(rpm);
+  });
+}
+
+function resetKPMatrix() {
+  calMMatrix = {}; calDone = false; calInited = false; initCal();
+  document.getElementById('coeffGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:14px;color:var(--txt3);font-size:12px;">請先完成 Phase 1 數據回填並計算</div>';
+  document.getElementById('mCalcProg').style.width = '0%';
+  document.getElementById('valBtn').disabled = true; document.getElementById('valBtn').style.opacity = '.4';
+  document.getElementById('applyBtn').disabled = true; document.getElementById('applyBtn').style.opacity = '.4';
+  ['70','90'].forEach(r => {
+    set('val' + r, '—'); set('val' + r + 'sub', '尚未執行');
+    document.getElementById('val' + r + 'badge').className = 'badge badge-wait';
+    document.getElementById('val' + r + 'badge').textContent = '等待中';
+  });
+  set('applyMsg', ''); set('exportBox', '尚無校正數據');
+  if (liveChartInst) { liveChartInst.data.datasets[0].data = []; liveChartInst.update(); }
+}
+
+function renderCoeffGrid() {
+  const grid = document.getElementById('coeffGrid');
+  grid.innerHTML = CAL_RPMS.map(rpm => `
+    <div class="coeff-card">
+      <div class="coeff-rpm">${rpm} RPM</div>
+      <div class="coeff-m">M = ${calMMatrix[rpm]}</div>
+      <div class="coeff-desc">${calMMatrix[rpm] > 1 ? '▲ 上調' : calMMatrix[rpm] < 1 ? '▼ 下調' : '= 準確'}</div>
+    </div>`).join('');
+}
+
+// ── Live Comp ──
+function getM(rpm) {
+  const rpms = CAL_RPMS;
+  if (!calDone || Object.keys(calMMatrix).length === 0) return null;
+  if (rpm <= rpms[0]) return calMMatrix[rpms[0]];
+  if (rpm >= rpms[rpms.length - 1]) return calMMatrix[rpms[rpms.length - 1]];
+  for (let i = 0; i < rpms.length - 1; i++) {
+    if (rpm >= rpms[i] && rpm <= rpms[i + 1]) {
+      const t = (rpm - rpms[i]) / (rpms[i + 1] - rpms[i]);
+      return +(calMMatrix[rpms[i]] * (1 - t) + calMMatrix[rpms[i + 1]] * t).toFixed(4);
+    }
+  }
+  return 1;
+}
+
+let liveRpm = 70, livePmeas = 200;
+function updateLiveComp(rpmVal, pmeasVal) {
+  if (rpmVal !== undefined && rpmVal !== null) liveRpm = parseInt(rpmVal);
+  if (pmeasVal !== undefined && pmeasVal !== null) livePmeas = parseInt(pmeasVal);
+  set('liveRpmDisp', liveRpm + ' RPM');
+  set('livePmeasDisp', livePmeas);
+  const M = getM(liveRpm);
+  if (M === null) { set('liveMval', '—'); set('livePmeas', livePmeas + ' W'); set('liveCorr', '—'); return; }
+  const corrected = +(livePmeas * M).toFixed(1);
+  set('liveMval', M.toFixed(4));
+  // find bracketing rpms
+  const lo = CAL_RPMS.filter(r => r <= liveRpm).pop() || CAL_RPMS[0];
+  const hi = CAL_RPMS.filter(r => r >= liveRpm)[0] || CAL_RPMS[CAL_RPMS.length - 1];
+  set('liveMsub', lo === hi ? `直接使用 ${lo}rpm 係數` : `插值 ${lo}→${hi} rpm`);
+  set('livePmeas', livePmeas + ' W');
+  set('liveCorr', corrected + ' W');
+  // update live chart
+  updateLiveChart(M);
+}
+
+function buildLiveChart() {
+  if (liveChartInst) { liveChartInst.destroy(); }
+  const lc = document.getElementById('liveChart').getContext('2d');
+  liveChartInst = new Chart(lc, {
+    type: 'line',
+    data: { labels: CAL_RPMS, datasets: [
+      { label: 'M 係數', data: [], borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,.06)', borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#00e5a0', tension: .3, fill: true, yAxisID: 'y1' },
+      { label: '插值位置', data: [], borderColor: 'transparent', backgroundColor: '#e8701a', pointRadius: 8, pointHoverRadius: 10, showLine: false, yAxisID: 'y1' }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{color:'#7a8299',font:{family:'Share Tech Mono',size:10},boxWidth:16}}, tooltip:{backgroundColor:'#181c23',borderColor:'#252a35',borderWidth:1,bodyColor:'#e8eaf0',bodyFont:{family:'Share Tech Mono',size:10}} },
+      scales: {
+        x:{ title:{display:true,text:'RPM',color:'#7a8299',font:{family:'Share Tech Mono',size:10}}, ticks:{color:'#7a8299',font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} },
+        y1:{ title:{display:true,text:'M 係數',color:'#7a8299',font:{family:'Share Tech Mono',size:10}}, ticks:{color:'#00e5a0',font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} }
+      }
+    }
+  });
+}
+
+function updateLiveChart(currentM) {
+  if (!liveChartInst || !calDone) return;
+  const mVals = CAL_RPMS.map(r => calMMatrix[r]);
+  liveChartInst.data.labels = CAL_RPMS;
+  liveChartInst.data.datasets[0].data = mVals;
+  // orange dot at current interpolation point
+  liveChartInst.data.datasets[1].data = [{ x: liveRpm, y: currentM }];
+  liveChartInst.options.scales.x.min = 35; liveChartInst.options.scales.x.max = 125;
+  liveChartInst.update('none');
+}
+
+// ── Validation ──
+function runValidation() {
+  if (!calDone) return;
+  [70, 90].forEach(testRpm => {
+    const M = getM(testRpm);
+    const ref = +(CAL_KP * testRpm * MONARK_CONST).toFixed(1);
+    const simMeasured = ref * (1 + (Math.random() - .5) * 0.08); // simulate real device
+    const corrected = +(simMeasured * M).toFixed(1);
+    const errPct = +((corrected - ref) / ref * 100).toFixed(2);
+    const ok = Math.abs(errPct) <= 1;
+    const id = 'val' + testRpm;
+    const el = document.getElementById(id);
+    el.textContent = (errPct >= 0 ? '+' : '') + errPct + '%';
+    el.style.color = ok ? 'var(--green)' : 'var(--red)';
+    set(id + 'sub', `目標 ${ref}W → 補償後 ${corrected}W`);
+    const badge = document.getElementById(id + 'badge');
+    badge.className = ok ? 'badge badge-ok' : 'badge badge-fail';
+    badge.textContent = ok ? '✓ 通過 ≤±1%' : '✗ 超出允差';
+  });
+  document.getElementById('applyBtn').disabled = false; document.getElementById('applyBtn').style.opacity = '1';
+}
+
+function applyCalibration() {
+  set('applyMsg', '✓ KP 校正係數已套用至儀表板功率計算引擎');
+  document.getElementById('applyBtn').textContent = '✓ 已套用';
+  document.getElementById('applyBtn').style.background = 'var(--green)';
+  document.getElementById('applyBtn').style.color = '#000';
+}
+
+function renderExport() {
+  const data = {
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    kp: CAL_KP,
+    constant: MONARK_CONST,
+    m_matrix: calMMatrix
+  };
+  document.getElementById('exportBox').textContent = JSON.stringify(data, null, 2);
+}
+
+function exportJSON() {
+  const text = document.getElementById('exportBox').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ 已複製';
+    setTimeout(() => btn.textContent = '📋 複製 JSON', 1500);
+  }).catch(() => alert(text));
+}
+
+function downloadCSV() {
+  if (!calDone) return;
+  let csv = 'RPM,RefPower_W,MeasuredPower_W,M_Coefficient\n';
+  CAL_RPMS.forEach(rpm => {
+    const ref = refPower(rpm);
+    const inp = document.getElementById('inp_' + rpm).value;
+    csv += `${rpm},${ref},${inp},${calMMatrix[rpm]}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'tsox_kp_calibration.csv'; a.click();
+}
+
+// ══════════════════════════════════════════
+//  TEST SYSTEM
+// ══════════════════════════════════════════
+const TEST_CFG = {
+  anaerobic: { title:'⚡ 無氧功率測試', sub:'3步驟法 — 每步10秒全力踩踏', badge:'無氧測試', bc:'tb-a', info:'<b>算法：</b>3步驟 × 10秒全力，系統依最大RPM動態調整kp。<br>回歸直線求最大無氧功率：watt = kp × rpm × 0.98' },
+  interval:  { title:'🔄 間歇測試', sub:'5秒全力 + 20秒休息 × 10回', badge:'間歇測試', bc:'tb-i', info:'<b>算法：</b>固定kp，10回 5秒全力+20秒恢復，kp = 體重 × 7.5%<br>公式：watt = kp × rpm × 0.98' },
+  wingate:   { title:'💥 Wingate 測試', sub:'全力踩踏 30秒，每秒記錄功率', badge:'WINGATE', bc:'tb-w', info:'<b>算法：</b>30秒全力Roll-out，kp = 體重 × 7.5%<br>輸出峰值功率、平均功率、疲勞指數。watt = kp × rpm × 0.98' }
+};
+
+function openTestModal(mode, btn) {
+  currentTestMode = mode;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cfg = TEST_CFG[mode];
+  set('tModalTitle', cfg.title); set('tModalSub', cfg.sub);
+  document.getElementById('tModalInfo').innerHTML = cfg.info;
+  updateKP();
+  document.getElementById('testModal').classList.add('open');
+}
+
+function closeTestModal() { document.getElementById('testModal').classList.remove('open'); }
+
+function updateKP() {
+  const g = document.getElementById('fGender').value;
+  const w = parseFloat(document.getElementById('fWeight').value) || 70;
+  let kp, note, lbl;
+  if (currentTestMode === 'anaerobic') {
+    lbl = '第1步初始負荷量'; note = '依性別體重查表';
+    kp = g === 'M' ? (w < 60 ? 3 : w < 80 ? 4 : 5) : (w < 50 ? 2 : w < 70 ? 3 : 4);
+  } else {
+    lbl = '測試負荷量 (kp)'; note = `體重 ${w.toFixed(1)} kg × 7.5%`;
+    kp = +(w * 0.075).toFixed(1);
+  }
+  set('kpLbl', lbl); set('kpPrev', kp.toFixed(1)); set('kpNote', note);
+}
+
+function startTest() {
+  closeTestModal();
+  const g = document.getElementById('fGender').value;
+  const w = parseFloat(document.getElementById('fWeight').value) || 70;
+  const kp = parseFloat(document.getElementById('kpPrev').textContent);
+  if (currentTestMode === 'anaerobic') runAnaerobic(g, w, kp);
+  else if (currentTestMode === 'interval') runInterval(w, kp);
+  else runWingate(w, kp);
+}
+
+// ── Test overlay helpers ──
+function showOv(mode) {
+  const cfg = TEST_CFG[mode];
+  const ov = document.getElementById('testOv'); ov.classList.add('open');
+  const b = document.getElementById('tBadge'); b.className = 'tbadge ' + cfg.bc; b.textContent = cfg.badge;
+}
+function hideOv() { document.getElementById('testOv').classList.remove('open'); }
+function abortTest() { hideOv(); if (testState) { clearInterval(testState.int); testState = null; } }
+function setDots(n, cur) {
+  const d = document.getElementById('tDots'); d.innerHTML = '';
+  for (let i = 0; i < n; i++) { const s = document.createElement('div'); s.className = 'sdot' + (i < cur ? ' done' : i === cur ? ' cur' : ''); d.appendChild(s); }
+}
+function setTInfo(cells) { document.getElementById('tInfoG').innerHTML = cells.map(c => `<div class="tinfo-c"><div class="tinfo-l">${c.l}</div><div class="tinfo-v" style="color:${c.col||'var(--green)'}">${c.v}</div></div>`).join(''); }
+
+// ── ANAEROBIC ──
+function runAnaerobic(g, w, kp1) {
+  showOv('anaerobic');
+  document.getElementById('tPF').parentElement.style.display = 'none';
+  let step = 0, kps = [kp1], results = [];
+  function doStep(kp) {
+    setDots(3, step);
+    set('tTitle', `第 ${step + 1} 步 — 全力踩踏 10秒`);
+    setTInfo([{ l: '負荷量', v: kp.toFixed(1) + ' kp' }, { l: '步驟', v: `${step + 1}/3` }, { l: '時間', v: '10 秒' }]);
+    let cd = 10, maxR = 0;
+    set('tCounter', 10); set('tPhase', '全力踩踏中');
+    testState = {};
+    testState.int = setInterval(() => {
+      const r = 90 + Math.round(Math.random() * 30);
+      if (r > maxR) maxR = r;
+      pushData(Math.round(kp * r * 0.98), r, simHR(kp * r * 0.98));
+      set('tCounter', --cd);
+      if (cd <= 0) {
+        clearInterval(testState.int);
+        results.push({ kp, rpm: maxR, watt: +(kp * maxR * 0.98).toFixed(1) });
+        step++;
+        if (step >= 3) { finishAna(results, kps); return; }
+        const add = maxR >= 180 ? (step === 1 ? 3 : 4) : maxR >= 150 ? (step === 1 ? 2 : 3) : maxR >= 130 ? (step === 1 ? 1 : 2) : 1;
+        const nKp = +(kps[kps.length - 1] + add).toFixed(1); kps.push(nKp);
+        doStep(nKp);
+      }
+    }, 1000);
+  }
+  doStep(kp1);
+}
+
+function finishAna(results, kps) {
+  hideOv();
+  const n = results.length;
+  const sx = results.reduce((a, s) => a + s.kp, 0), sy = results.reduce((a, s) => a + s.rpm, 0);
+  const sxy = results.reduce((a, s) => a + s.kp * s.rpm, 0), sx2 = results.reduce((a, s) => a + s.kp * s.kp, 0);
+  const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+  const intercept = (sy - slope * sx) / n;
+  let bW = 0, bKp = 0;
+  for (let k = 0.1; k <= 13; k = +(k + 0.1).toFixed(1)) { const r = slope * k + intercept; if (r > 0) { const w = +(k * r * 0.98).toFixed(1); if (w > bW) { bW = w; bKp = k; } } }
+  showResult('anaerobic', 'tb-a', '無氧功率測試結果',
+    [{ l: '最大無氧功率', v: bW.toFixed(0) + ' W', col: 'var(--green)' }, { l: '最佳負荷量', v: bKp.toFixed(1) + ' kp', col: 'var(--orange)' }, { l: '測試步驟', v: n + ' 步', col: 'var(--cyan)' }],
+    { labels: results.map((_, i) => 'Step ' + (i + 1)), d1: results.map(s => s.watt), d1c: '#e8701a', d1l: '功率(W)', d2: results.map(s => s.rpm), d2c: '#00e5a0', d2l: 'RPM' });
+}
+
+// ── INTERVAL ──
+function runInterval(w, kp) {
+  showOv('interval');
+  document.getElementById('tPF').parentElement.style.display = '';
+  const rounds = 10, work = 5, rest = 20;
+  let round = 0, phase = 'work', sec = 0, rRpms = [], results = [];
+  testState = {};
+  testState.int = setInterval(() => {
+    setDots(10, round);
+    const total = round * (work + rest) + sec + (phase === 'rest' ? work : 0);
+    document.getElementById('tPF').style.width = (total / (rounds * (work + rest)) * 100) + '%';
+    if (phase === 'work') {
+      set('tTitle', `第 ${round + 1} 回 — 全力踩踏`); set('tPhase', '全力踩踏中'); set('tCounter', work - sec);
+      setTInfo([{ l: 'kp', v: kp.toFixed(1) }, { l: '回次', v: `${round + 1}/10` }, { l: '工作', v: '5秒' }]);
+      const r = simRPM() + 10; rRpms.push(r);
+      pushData(Math.round(kp * r * 0.98), r, simHR(kp * r * 0.98)); sec++;
+      if (sec >= work) { const a = Math.round(rRpms.reduce((x, y) => x + y, 0) / rRpms.length); results.push({ round: round + 1, rpm: a, watt: +(kp * a * 0.98).toFixed(1) }); rRpms = []; round++; sec = 0; phase = 'rest'; if (round >= rounds) { clearInterval(testState.int); finishInterval(results, kp); } }
+    } else {
+      set('tTitle', `第 ${round + 1} 回 — 休息`); set('tPhase', '恢復中'); set('tCounter', rest - sec);
+      setTInfo([{ l: '下回', v: round + 1 }, { l: '休息', v: (rest - sec) + 's' }, { l: '完成', v: round + '/10' }]);
+      sec++; if (sec >= rest) { sec = 0; phase = 'work'; }
+    }
+  }, 1000);
+}
+
+function finishInterval(results, kp) {
+  hideOv();
+  const avg = +(results.reduce((a, r) => a + r.watt, 0) / results.length).toFixed(1);
+  const mx = Math.max(...results.map(r => r.watt)), mn = Math.min(...results.map(r => r.watt));
+  showResult('interval', 'tb-i', '間歇測試結果',
+    [{ l: '平均功率', v: avg + ' W', col: 'var(--orange)' }, { l: '最高單回', v: mx.toFixed(0) + ' W', col: 'var(--green)' }, { l: '功率衰退', v: (mx - mn).toFixed(0) + ' W', col: 'var(--red)' }],
+    { labels: results.map(r => 'R' + r.round), d1: results.map(r => r.watt), d1c: '#e8701a', d1l: '功率(W)', d2: results.map(r => r.rpm), d2c: '#00e5a0', d2l: 'RPM' });
+}
+
+// ── WINGATE ──
+function runWingate(w, kp) {
+  showOv('wingate');
+  document.getElementById('tPF').parentElement.style.display = '';
+  document.getElementById('tDots').innerHTML = '';
+  let sec = 0; const total = 30; const results = [];
+  set('tTitle', 'Wingate — 全力踩踏 30秒');
+  testState = {};
+  testState.int = setInterval(() => {
+    const decay = (total - sec) / total;
+    const r = Math.round((simRPM() + 15) * (0.7 + 0.3 * decay));
+    const pw = +(kp * r * 0.98).toFixed(1);
+    results.push({ sec: sec + 1, rpm: r, watt: pw });
+    pushData(Math.round(pw), r, simHR(pw));
+    sec++; set('tCounter', total - sec); set('tPhase', '全力維持！');
+    document.getElementById('tPF').style.width = (sec / total * 100) + '%';
+    setTInfo([{ l: 'kp', v: kp.toFixed(1) }, { l: '剩餘', v: (total - sec) + 's' }, { l: '瞬時功率', v: Math.round(pw) + 'W' }]);
+    if (sec >= total) { clearInterval(testState.int); finishWingate(results, kp); }
+  }, 1000);
+}
+
+function finishWingate(results, kp) {
+  hideOv();
+  const pp = Math.max(...results.map(r => r.watt));
+  const mp = +(results.reduce((a, r) => a + r.watt, 0) / results.length).toFixed(1);
+  const mn = Math.min(...results.map(r => r.watt));
+  const fi = +((pp - mn) / pp * 100).toFixed(1);
+  showResult('wingate', 'tb-w', 'Wingate 測試結果',
+    [{ l: '峰值功率 (PP)', v: pp.toFixed(0) + ' W', col: 'var(--green)' }, { l: '平均功率 (MP)', v: mp + ' W', col: 'var(--orange)' }, { l: '疲勞指數 (FI)', v: fi + ' %', col: 'var(--red)' }],
+    { labels: results.map(r => r.sec + 's'), d1: results.map(r => r.watt), d1c: '#e8701a', d1l: '功率(W)', d2: results.map(r => r.rpm), d2c: '#00e5a0', d2l: 'RPM' });
+}
+
+// ── Result ──
+function showResult(mode, bc, title, cards, chart) {
+  const p = document.getElementById('resPanel'); p.classList.add('open');
+  const rb = document.getElementById('rBadge'); rb.className = 'tbadge ' + bc; rb.textContent = TEST_CFG[mode].badge;
+  set('rTitle', title);
+  document.getElementById('rGrid').innerHTML = cards.map(c => `<div class="rcard"><div class="rcard-l">${c.l}</div><div class="rcard-v" style="color:${c.col}">${c.v}</div></div>`).join('');
+  if (resChartInst) { resChartInst.destroy(); }
+  const rc = document.getElementById('resChart').getContext('2d');
+  resChartInst = new Chart(rc, {
+    type: 'line',
+    data: { labels: chart.labels, datasets: [
+      { label: chart.d1l, data: chart.d1, borderColor: chart.d1c, backgroundColor: chart.d1c + '22', borderWidth: 2, pointRadius: 3, tension: .3, fill: true, yAxisID: 'y1' },
+      { label: chart.d2l, data: chart.d2, borderColor: chart.d2c, backgroundColor: chart.d2c + '18', borderWidth: 1.5, pointRadius: 2, tension: .3, fill: false, yAxisID: 'y2' }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      layout:{padding:{left:10,right:10,top:10,bottom:10}}, // Added padding for better spacing
+      plugins:{ legend:{labels:{color:'#7a8299',font:{family:'Share Tech Mono',size:10},boxWidth:14}} },
+      scales: {
+        x:{ ticks:{color:'#7a8299',font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} },
+        y1:{ type:'linear', position:'left', ticks:{color:chart.d1c,font:{family:'Share Tech Mono',size:9}}, grid:{color:'#1a1e28'}, border:{color:'#252a35'} },
+        y2:{ type:'linear', position:'right', ticks:{color:chart.d2c,font:{family:'Share Tech Mono',size:9}}, grid:{display:false}, border:{color:'#252a35'} }
+      }
+    }
+  });
+}
+
+function closeResult() { document.getElementById('resPanel').classList.remove('open'); }
+</script>
+</body>
+</html>
