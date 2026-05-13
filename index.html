@@ -65,7 +65,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Rajdhani',sans-serif;fon
 ──────────────────────────────────────── */
 .dash-grid{
   display:grid;
-  grid-template-columns:260px 1fr 220px;
+  /* 調整這裡，讓三個欄位等比例分配空間 */
+  grid-template-columns:1fr 1fr 1fr;
   grid-template-rows:1fr;
   flex:1;
   overflow:hidden;
@@ -94,7 +95,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Rajdhani',sans-serif;fon
   .topbar{height:40px;}
   #vDash{min-height:calc(100vh - 40px);}
   .dash-grid{
-    grid-template-columns:230px 1fr 200px;
+    /* 調整這裡，讓三個欄位等比例分配空間 */
+    grid-template-columns:1fr 1fr 1fr;
     height:calc(100vh - 40px - 28px);
   }
   .dash-footer{height:28px;font-size:9px;}
@@ -644,9 +646,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
         </div>
       </div>
       <div class="cm2">
-        <div class="cm"><div class="cmlbl">速度</div><div><span class="cmval" id="speed">0.0</span><span class="cunit">km/h</span></div></div>
+        <div class="cm"><div class="clbl">速度</div><div><span class="cmval" id="speed">0.0</span><span class="cunit">km/h</span></div></div>
         <div class="cm">
-          <div class="cmlbl" style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="clbl" style="display:flex;align-items:center;justify-content:space-between;">
             <span>⬆ 踏頻</span>
             <span id="cadenceSrc" style="font-size:9px;color:var(--txt3);font-family:'Share Tech Mono',monospace;">訓練台</span>
           </div>
@@ -665,8 +667,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
         </div>
       </div>
       <div class="cm2">
-        <div class="cm"><div class="cmlbl">📍 距離</div><div><span class="cmval" id="dist" style="color:var(--txt)">0</span><span class="cunit">m</span></div></div>
-        <div class="cm"><div class="cmlbl">⏱ 計時</div><div class="cmval" id="cTimer" style="color:var(--txt);font-size:17px;">00:00</div></div>
+        <div class="cm"><div class="clbl">📍 距離</div><div><span class="cmval" id="dist" style="color:var(--txt)">0</span><span class="cunit">m</span></div></div>
+        <div class="cm"><div class="clbl">⏱ 計時</div><div class="cmval" id="cTimer" style="color:var(--txt);font-size:17px;">00:00</div></div>
       </div>
     </div>
 
@@ -2112,11 +2114,11 @@ function finishAna(results, kps) {
 function runInterval(w, kp) {
   showOv('interval');
   document.getElementById('tPF').parentElement.style.display = '';
+  document.getElementById('tDots').innerHTML = '';
   const rounds = 10, work = 5, rest = 20;
   let round = 0, phase = 'work', sec = 0, rRpms = [], results = [];
   testState = {};
   testState.int = setInterval(() => {
-    setDots(10, round);
     const total = round * (work + rest) + sec + (phase === 'rest' ? work : 0);
     document.getElementById('tPF').style.width = (total / (rounds * (work + rest)) * 100) + '%';
     if (phase === 'work') {
@@ -2203,3 +2205,4 @@ function closeResult() { document.getElementById('resPanel').classList.remove('o
 </script>
 </body>
 </html>
+
